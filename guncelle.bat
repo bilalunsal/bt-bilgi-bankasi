@@ -15,7 +15,8 @@ echo Not: db\ (veritabani) ve ekler\ (dosyalar) KORUNUR, ustune yazilmaz.
 echo.
 
 echo [1/4] Indiriliyor...
-powershell -NoProfile -Command "try { Invoke-WebRequest -Uri '%ZIPURL%' -OutFile '%TEMP%\btbb.zip' -UseBasicParsing } catch { exit 1 }"
+rem Eski Windows sunucularda TLS 1.2 varsayilan degil -> once acilir (yoksa SSL/TLS hatasi)
+powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; try { Invoke-WebRequest -Uri '%ZIPURL%' -OutFile '%TEMP%\btbb.zip' -UseBasicParsing } catch { exit 1 }"
 if errorlevel 1 ( echo HATA: Indirme basarisiz. Internet / repo adresini kontrol edin. & pause & exit /b 1 )
 
 echo [2/4] Aciliyor...

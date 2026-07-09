@@ -165,7 +165,14 @@ Ortam: `PORT` (varsayılan 8793), `BILGI_DB` (varsayılan `db/bilgi.sqlite`).
       içeriğe yapıştırılır, detayda **inline** görünür. Testler 21/21 (db 16 + md 5).
     - [ ] Sonraki incelik: form içi ilişki-seç (sistem alanı şimdilik metin; İlişkiler panelinden
           gerçek bağ kurulabiliyor), içeriğe **yapıştır-yükle** (görsel panoyu doğrudan gömme).
-- [ ] **Dağıtım** — tek `.exe` (esbuild+pkg) veya ofis sunucusunda servis; otomatik yedek.
+- [x] **Dağıtım / güncelleme (GitHub oto-güncelleme).** Repo: **github.com/bilalunsal/bt-bilgi-bankasi**
+      (public). `arayuz/dist` BİLİNÇLİ commit'lenir (müşteride derleme gerekmesin). `.gitattributes` →
+      `.bat` depoda CRLF (indirilen zip Windows'ta çalışır). **İlk kurulum:** repo ZIP indir → aç →
+      `sunucu-baslat.bat`. **Güncelleme:** `guncelle.bat` (codeload zip indirir, kodu yeniler,
+      **db/ + ekler/ KORUNUR**, npm install). Akış: değişiklik → commit → `git push` → müşteride
+      `guncelle.bat`. Uçtan uca test edildi (CRLF, dist, veri koruması). SEMAK'ta Node 24 kurulu.
+- [ ] **Kalan dağıtım:** SEMAK'a ilk kurulum + Cloudflare Tunnel (8795 yayın); ops: otomatik yedek,
+      Windows başlangıç servisi, (opsiyonel) tek `.exe`.
 
 **Bilinen sınırlar:** müşteri "Müşteriler" yönetim ekranı henüz yok (CLI+API var); dışa aktarma yok;
 markdown/inline ekran görüntüsü render'ı yok (Faz 6 ile gelecek).
