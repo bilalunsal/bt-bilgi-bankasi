@@ -1,0 +1,23 @@
+# Windows baslaticilar CRLF OLMALI — yoksa GitHub zip'inden indirilince Windows'ta bozulur.
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+*.vbs  text eol=crlf
+
+# macOS baslaticilar LF
+*.command text eol=lf
+
+# Kaynak/metin dosyalar LF (tutarli)
+*.js   text eol=lf
+*.jsx  text eol=lf
+*.mjs  text eol=lf
+*.json text eol=lf
+*.md   text eol=lf
+*.html text eol=lf
+*.css  text eol=lf
+
+# Ikili dosyalar
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.ico  binary
+*.sqlite binary

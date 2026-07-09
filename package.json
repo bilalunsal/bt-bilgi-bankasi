@@ -1,0 +1,18 @@
+{
+  "name": "bt-bilgi-bankasi",
+  "version": "0.1.0",
+  "description": "BT Bilgi Bankasi — firma IT donanim/yazilim envanteri + bilgi bankasi (SQLite FTS5, tam metin arama)",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "node --test",
+    "start": "node sunucu/server.js",
+    "intake": "node sunucu/intake.js",
+    "musteri-ekle": "node sunucu/musteri-ekle.js"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1"
+  }
+}

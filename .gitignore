@@ -1,0 +1,20 @@
+# Kullanici verisi — ASLA commit'lenmez (Strateji Masasi dersi: db ezme/kayip riski)
+db/*.sqlite
+db/*.sqlite-*
+db/*.db
+db/*.db-*
+_yedekler/
+ekler/
+
+# Bagimliliklar / cikti
+node_modules/
+dist-exe/
+dist-mac/
+# NOT: arayuz/dist BILINCLI olarak izlenir (repoya dahil) — GitHub oto-guncellemede
+# musteri makinesinde arayuz derlemesi gerekmesin diye. Kod degistikce yeniden derlenip commit'lenir.
+
+# Ortam / gecici
+.env
+*.log
+.DS_Store
+Thumbs.db
