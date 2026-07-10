@@ -32,6 +32,16 @@ export const BOLUMLER = {
   ag: [
     { baslik: "Ağ / Altyapı", kodlar: ["kategori", "ip_araligi", "vlan", "gateway", "dns", "cihaz"] },
   ],
+  alan_adi: [
+    { baslik: "Alan Adı", kodlar: ["kayit_yeri", "yetkili", "nameserver", "yonetim_url"] },
+    { baslik: "Süre & Ücret", kodlar: ["kayit_tarihi", "bitis", "otomatik_yenileme", "yillik_ucret"] },
+    { baslik: "Notlar", kodlar: ["notlar"] },
+  ],
+  ssl: [
+    { baslik: "Sertifika", kodlar: ["saglayici", "tur", "kurulu_sunucu"] },
+    { baslik: "Süre & Ücret", kodlar: ["baslangic", "bitis", "otomatik_yenileme", "yillik_ucret"] },
+    { baslik: "Notlar", kodlar: ["notlar"] },
+  ],
   talep: [
     { baslik: "Talep", kodlar: ["musteri", "iletisim", "kategori", "ilgili_cihaz"] },
     { baslik: "Açıklama", kodlar: ["aciklama"] },
@@ -64,6 +74,8 @@ export const LISTE_KOLON = {
   sozlesme: [{ v: "tedarikci" }, { v: "bitis", et: "Bitiş" }, { v: "tutar", et: "Tutar" }],
   tedarikci: [{ v: "yetkili" }, { v: "telefon" }, { v: "email" }],
   ag: [{ v: "kategori" }, { v: "ip_araligi" }, { v: "vlan", et: "VLAN" }],
+  alan_adi: [{ v: "kayit_yeri", et: "Kayıt" }, { v: "bitis", et: "Bitiş" }, { v: "otomatik_yenileme", et: "Oto" }],
+  ssl: [{ v: "saglayici", et: "CA" }, { v: "tur" }, { v: "bitis", et: "Bitiş" }],
   talep: [{ v: "musteri" }, { v: "kategori" }],
   sistem: [{ v: "teknoloji" }, { v: "mevcut_surum", et: "Sürüm" }, { v: "ortam" }],
   surec: [{ v: "sistem" }, { v: "hedef" }, { v: "kategori" }],

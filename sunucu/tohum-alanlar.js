@@ -41,6 +41,18 @@ export const TIPLER = [
     varsayilanDurum: "Aktif",
   },
   {
+    // Alan adi (domain) — bitis + tedarik yeri takibi; uyari motoruna baglidir.
+    kod: "alan_adi", etiket: "Alan Adi", ikon: "🌍",
+    durumlar: ["Aktif", "Yakinda Bitiyor", "Suresi Doldu", "Transfer", "Birakildi"],
+    varsayilanDurum: "Aktif",
+  },
+  {
+    // SSL sertifikasi — bitis takibi (yenileme uyarisi); uyari motoruna baglidir.
+    kod: "ssl", etiket: "SSL Sertifikasi", ikon: "🔒",
+    durumlar: ["Aktif", "Yakinda Bitiyor", "Suresi Doldu", "Iptal", "Yenilendi"],
+    varsayilanDurum: "Aktif",
+  },
+  {
     // Musteri talebi — DIS intake servisinden (dar kapi) veya personelce girilir.
     kod: "talep", etiket: "Musteri Talebi", ikon: "🎫",
     durumlar: ["Yeni", "Inceleniyor", "Beklemede", "Cozuldu", "Kapandi", "Reddedildi"],
@@ -83,6 +95,8 @@ const TIP_FORM = {
   sozlesme:  { baslikEtiket: "Sözleşme Başlığı",  baslikOrnek: "Örn: Yıllık bakım sözleşmesi",       oncelik: false, konum: false },
   tedarikci: { baslikEtiket: "Firma / Kısa Ad",   baslikOrnek: "Örn: ABC Bilişim",                   oncelik: false, konum: false },
   ag:        { baslikEtiket: "Ad / Tanım",        baslikOrnek: "Örn: Muhasebe VLAN",                 oncelik: false, konum: true },
+  alan_adi:  { baslikEtiket: "Alan Adı",          baslikOrnek: "Örn: semak.com.tr",                  oncelik: false, konum: false },
+  ssl:       { baslikEtiket: "Alan Adı / Host",   baslikOrnek: "Örn: *.semak.com.tr",                oncelik: false, konum: false },
   talep:     { baslikEtiket: "Konu",              baslikOrnek: "Örn: Yazıcı bağlanmıyor",            oncelik: true,  konum: false },
   sistem:    { baslikEtiket: "Sistem Adı",        baslikOrnek: "Örn: SEMAK B2B",                     oncelik: false, konum: false },
   surec:     { baslikEtiket: "Doküman Başlığı",   baslikOrnek: "Örn: Patlak Resim Süreci — Teknik",  oncelik: false, konum: false },
@@ -164,6 +178,29 @@ export const ALANLAR = [
   { tip: "ag", kod: "gateway", etiket: "Gateway", veri_tipi: "ip", sira: 40 },
   { tip: "ag", kod: "dns", etiket: "DNS", veri_tipi: "metin", sira: 50 },
   { tip: "ag", kod: "cihaz", etiket: "Ilgili Cihaz", veri_tipi: "iliski", iliski_tip: "donanim", sira: 60 },
+
+  // ── ALAN ADI (DOMAIN) ───────────────────────────────────
+  // Baslik = alan adinin kendisi (semak.com.tr). Cekirdek: bitis + kayit_yeri (tedarik yeri).
+  { tip: "alan_adi", kod: "kayit_yeri", etiket: "Kayit Yeri / Saglayici", veri_tipi: "metin", zorunlu: 1, sira: 10 },
+  { tip: "alan_adi", kod: "kayit_tarihi", etiket: "Kayit Tarihi", veri_tipi: "tarih", sira: 20 },
+  { tip: "alan_adi", kod: "bitis", etiket: "Bitis / Yenileme", veri_tipi: "tarih", zorunlu: 1, sira: 30 },
+  { tip: "alan_adi", kod: "otomatik_yenileme", etiket: "Otomatik Yenileme", veri_tipi: "secim", secenekler: ["Evet", "Hayir"], sira: 40 },
+  { tip: "alan_adi", kod: "nameserver", etiket: "Nameserver (NS)", veri_tipi: "metin", sira: 50 },
+  { tip: "alan_adi", kod: "yetkili", etiket: "Kayit Sahibi / Yetkili", veri_tipi: "metin", sira: 60 },
+  { tip: "alan_adi", kod: "yonetim_url", etiket: "Yonetim Paneli URL", veri_tipi: "url", sira: 70 },
+  { tip: "alan_adi", kod: "yillik_ucret", etiket: "Yillik Ucret", veri_tipi: "para", sira: 80 },
+  { tip: "alan_adi", kod: "notlar", etiket: "Notlar", veri_tipi: "uzunmetin", sira: 90 },
+
+  // ── SSL SERTIFIKASI ─────────────────────────────────────
+  // Baslik = kapsanan alan adi / host (*.semak.com.tr). Cekirdek: bitis + saglayici.
+  { tip: "ssl", kod: "saglayici", etiket: "Saglayici / CA (tedarik yeri)", veri_tipi: "metin", zorunlu: 1, sira: 10 },
+  { tip: "ssl", kod: "tur", etiket: "Sertifika Turu", veri_tipi: "secim", secenekler: ["DV", "OV", "EV", "Wildcard", "Multi-Domain (SAN)", "Self-Signed"], sira: 20 },
+  { tip: "ssl", kod: "baslangic", etiket: "Baslangic", veri_tipi: "tarih", sira: 30 },
+  { tip: "ssl", kod: "bitis", etiket: "Bitis", veri_tipi: "tarih", zorunlu: 1, sira: 40 },
+  { tip: "ssl", kod: "otomatik_yenileme", etiket: "Otomatik Yenileme", veri_tipi: "secim", secenekler: ["Evet", "Hayir"], sira: 50 },
+  { tip: "ssl", kod: "kurulu_sunucu", etiket: "Kurulu Sunucu / Cihaz", veri_tipi: "metin", sira: 60 },
+  { tip: "ssl", kod: "yillik_ucret", etiket: "Yillik Ucret", veri_tipi: "para", sira: 70 },
+  { tip: "ssl", kod: "notlar", etiket: "Notlar", veri_tipi: "uzunmetin", sira: 80 },
 
   // ── MUSTERI TALEBI ──────────────────────────────────────
   { tip: "talep", kod: "musteri", etiket: "Musteri", veri_tipi: "metin", sira: 10 },

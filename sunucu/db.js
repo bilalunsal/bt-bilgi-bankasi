@@ -427,6 +427,8 @@ const UYARI_ALANLARI = [
   { tip: "donanim", alan: "garanti_bitis", etiket: "Garanti" },
   { tip: "lisans",  alan: "bitis",         etiket: "Lisans" },
   { tip: "sozlesme", alan: "bitis",        etiket: "Sözleşme" },
+  { tip: "alan_adi", alan: "bitis",        etiket: "Alan Adı" },
+  { tip: "ssl",      alan: "bitis",        etiket: "SSL" },
 ];
 export function uyarilar(db, { gun = 45, bugun = null } = {}) {
   const bugunISO = (bugun || new Date().toISOString().slice(0, 10));

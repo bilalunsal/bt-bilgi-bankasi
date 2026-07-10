@@ -27,6 +27,8 @@ export const TIP_RENK = {
   sozlesme: PAL.mor,
   tedarikci: PAL.turuncu,
   ag: PAL.rose,
+  alan_adi: PAL.mavi,
+  ssl: PAL.green,
 };
 
 // Duruma gore rozet rengi (kaba eslesme)

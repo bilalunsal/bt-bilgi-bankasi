@@ -129,6 +129,22 @@ test("uyarilar: bitis tarihlerine gore yakin/gecti siniflandirma", () => {
   assert.equal(u.gecmis[0].kalanGun, -5);
 });
 
+test("uyarilar: alan adi ve SSL bitisleri de takip edilir", () => {
+  const db = yeniDb();
+  const bugun = "2026-07-09";
+  kayitEkle(db, { tip: "alan_adi", baslik: "semak.com.tr", veri: { kayit_yeri: "Natro", bitis: "2026-07-29" } }); // +20 → yakin
+  kayitEkle(db, { tip: "ssl",      baslik: "*.semak.com.tr", veri: { saglayici: "Let's Encrypt", bitis: "2026-07-01" } }); // -8 → gecti
+  kayitEkle(db, { tip: "alan_adi", baslik: "uzak.com", veri: { kayit_yeri: "GoDaddy", bitis: "2027-06-01" } }); // uzak → haric
+  const u = uyarilar(db, { gun: 45, bugun });
+  const yakinBasliklar = u.yakin.map(x => x.baslik);
+  const gecmisBasliklar = u.gecmis.map(x => x.baslik);
+  assert.ok(yakinBasliklar.includes("semak.com.tr"), "alan adi yaklasan bitis uyarisi");
+  assert.ok(gecmisBasliklar.includes("*.semak.com.tr"), "gecmis SSL bitis uyarisi");
+  assert.equal(u.yakin.find(x => x.baslik === "semak.com.tr").kategori, "Alan Adı");
+  assert.equal(u.gecmis.find(x => x.baslik === "*.semak.com.tr").kategori, "SSL");
+  assert.ok(!yakinBasliklar.includes("uzak.com") && !gecmisBasliklar.includes("uzak.com"), "uzak tarih haric");
+});
+
 test("musteri token: uretim, dogrulama, yenileme, pasiflestirme", () => {
   const db = yeniDb();
   const { id, token } = musteriEkle(db, { ad: "ABC Ltd", eposta: "bilgi@abc.com" });

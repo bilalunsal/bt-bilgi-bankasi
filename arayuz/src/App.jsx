@@ -16,6 +16,7 @@ import { LISTE_KOLON } from "./modul.js";
 const MENU_GRUPLARI = [
   { baslik: "Genel", ikon: "📊", ozel: ["tumu", "uyarilar"] },
   { baslik: "Envanter", ikon: "🗄️", tipler: ["donanim", "yazilim", "lisans", "ag"] },
+  { baslik: "Alan Adı & SSL", ikon: "🌍", tipler: ["alan_adi", "ssl"] },
   { baslik: "Dokümantasyon", ikon: "📚", tipler: ["sistem", "surec", "revizyon", "bilgi"] },
   { baslik: "Kişiler & Destek", ikon: "🤝", tipler: ["personel", "talep", "tedarikci", "sozlesme"] },
   { baslik: "Yönetim", ikon: "⚙️", ozel: ["kullanicilar"], adminGerek: true },
