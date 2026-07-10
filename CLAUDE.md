@@ -195,8 +195,38 @@ Ortam: `PORT` (varsayılan 8793), `BILGI_DB` (varsayılan `db/bilgi.sqlite`).
       Sol menüde yeni grup "Alan Adı & SSL". Tipe özel form bölümleri + liste kolonları (modul.js).
       Motor/DB şeması değişmedi — tamamen ekleme; `alanlariSenkronla` dolu DB'ye otomatik taşır.
       Uyarilar.jsx zaten jenerik (tipMeta ikon + kategori). Testler 24/24. Commit+push edildi.
-- [ ] **Kalan dağıtım:** SEMAK'a ilk kurulum + Cloudflare Tunnel (8795 yayın); ops: otomatik yedek,
-      Windows başlangıç servisi, (opsiyonel) tek `.exe`.
+- [x] **Faz 10 — E-posta bildirimleri (SMTP / Office 365).** `ayarlar` (K/V) tablosu + yardımcılar
+      (`ayarGetir/Kur/ariGetir/ariKaydet`). `sunucu/eposta.js`: **nodemailer** (^9.0.3, güvenlik
+      yaması) DİNAMİK import — paket yoksa sunucu yine çalışır, e-posta no-op. Yapılandırılmamış/
+      kapalı/hatalıysa **sessizce atlar, ASLA exception fırlatmaz** (ana akışı kırmaz). O365
+      varsayılanı (smtp.office365.com:587 STARTTLS). Konu satırında CRLF temizliği (müşteri verisi).
+      **Yeni müşteri talebi** gelince IT'ye mail (intake.js hook, non-blocking). Admin uçları:
+      GET/PUT `/api/ayarlar` (parola **maskeli**; boş parola mevcut değeri korur), POST
+      `/api/ayarlar/eposta-test`. `sarmala()` artık async-güvenli. UI: **Ayarlar.jsx** (SMTP +
+      bildirim anahtarları + Test Gönder). Gönderen: **admin@semak.com.tr** (Bilal verdi; parolayı
+      admin ekrandan girer — O365 SMTP AUTH açık olmalı). Test 26/26, HTTP uçtan uca.
+- [x] **Faz 11 — White-label marka + sürüm takibi + form focus fix + menü akordeon.**
+    - **Marka (white-label):** Logo artık GÖMÜLÜ DEĞİL — her firma Ayarlar>Marka'dan yükler (data URI,
+      `ayarlar.marka_logo`; db/ korunduğu için güncellemede kalır). Program adı **değişken**:
+      `marka_ad` (kısa) + `marka_tam` (tam) — "Semak" sabit değil. Public `GET /api/marka` (giriş
+      ekranında da gerekli, auth'suz — SERBEST'te). Admin: POST/DELETE `/api/marka/logo` (tür+~2MB
+      doğrulama). `ui.jsx MarkaLogo` (logo yoksa baş harf monogramı). App/Giriş marka'dan çizer,
+      `document.title=marka_tam`. Gömülü `logo-semak.jpg` **silindi**. version.json tamAd nötrleşti.
+      **NOT:** SEMAK'ın kendi adını/logosunu bir kez Ayarlar'dan girmesi gerekir (artık default değil).
+    - **Sürüm takibi:** version.json'a **`yapim`** (build no) + `version` semver. `guncelle.bat` [1/5]
+      **ön-kontrol**: GitHub raw version.json'u PowerShell'le çekip yerelle kıyaslar; eşit/ileri ise
+      zip'i İNDİRMEZ (exit 10 → `if errorlevel 10` çıkış). server `GET /api/guncelleme` (admin) →
+      { yerel, uzak, guncellemeVar }; çevrimdışı graceful. UI: Ayarlar "Sürüm & Güncelleme" +
+      admin header "⬆ Güncelleme var" rozeti. `GUNCELLEME_URL` env ile değiştirilebilir.
+      **Her yeni sürümde `version.json` `yapim`'ı artır** (yoksa istemci güncelleme göremez).
+    - **Bug fix (Faz 8 regresyonu):** KayitForm'da `Etiketli` bileşeni render İÇİNDE tanımlıydı →
+      her tuşta remount → focus başlığa fırlıyordu. Modül seviyesine taşındı. Tek ortak form olduğu
+      için tüm tiplerin Yeni Kayıt ekranını düzeltti.
+    - **Menü akordeon:** sol menüde tek grup açık (Set → tek string), Genel varsayılan.
+- [ ] **Kalan dağıtım:** SEMAK'a ilk kurulum + Cloudflare Tunnel (8795 yayın); ops: **otomatik yedek
+      (SIRADA — Bilal 'veri çok kritik' dedi)**, Windows başlangıç servisi, (opsiyonel) tek `.exe`.
+- [ ] **Kararlaştırılan sonraki 4 (rakip ITSM analizi):** 1) E-posta ✅(Faz10) · 2) SLA/talep
+      zamanlaması · 3) müşteri talep durum takibi (tokenlı) · 4) dashboard + CSV/JSON export.
 
 **Bilinen sınırlar:** müşteri "Müşteriler" yönetim ekranı henüz yok (CLI+API var); dışa aktarma yok;
 markdown/inline ekran görüntüsü render'ı yok (Faz 6 ile gelecek).
