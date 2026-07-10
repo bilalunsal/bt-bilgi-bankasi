@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul
-title BT Bilgi Bankasi - Guncelle
+title SITMS - Guncelle
 cd /d "%~dp0"
 set "PATH=%PATH%;C:\Program Files\nodejs"
 

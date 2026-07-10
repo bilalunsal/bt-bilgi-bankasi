@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul
-title BT Bilgi Bankasi - Sunucu
+title SITMS - Semak IT Management Systems
 cd /d "%~dp0"
 set "PATH=%PATH%;C:\Program Files\nodejs"
 

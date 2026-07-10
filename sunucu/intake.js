@@ -46,7 +46,7 @@ textarea{resize:vertical;min-height:96px}
 .hp{position:absolute;left:-9999px} .zorunlu{color:#F4707F}
 .ok{text-align:center} .ok .im{font-size:46px;margin-bottom:8px}
 .marka{font-size:12px;color:#6B7896;text-align:center;margin-top:18px}
-</style></head><body><div class="kart">${govde}<div class="marka">BilgiTek · Destek Talep Formu</div></div></body></html>`;
+</style></head><body><div class="kart">${govde}<div class="marka">Semak · Destek Talep Formu</div></div></body></html>`;
 }
 
 const bulunamadi = (res) => res.status(404).send(sayfa("Bulunamadı",

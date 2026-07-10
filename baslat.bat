@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul
-title BT Bilgi Bankasi
+title SITMS - Semak IT Management Systems
 cd /d "%~dp0"
 rem Node PATH'te olmasa bile calissin diye standart kurulum yolunu ekle
 set "PATH=%PATH%;C:\Program Files\nodejs"

@@ -142,7 +142,10 @@ export default function App() {
           <div style={{ background: "#fff", borderRadius: 6, padding: "3px 7px", display: "flex", alignItems: "center" }}>
             <img src={logo} alt="SEMAK" style={{ height: 26, display: "block" }} />
           </div>
-          <div style={{ fontWeight: 800, fontSize: 16 }}>BT Bilgi Bankası</div>
+          <div style={{ lineHeight: 1.15 }}>
+            <div style={{ fontWeight: 800, fontSize: 15 }}>SITMS</div>
+            <div style={{ fontSize: 10.5, color: PAL.soluk2 }}>Semak IT Management Systems</div>
+          </div>
         </div>
 
         <div style={{ flex: 1, maxWidth: 640, position: "relative" }}>

@@ -28,8 +28,9 @@ export default function Giris({ onGiris }) {
             <img src={logo} alt="SEMAK" style={{ height: 46, display: "block" }} />
           </div>
           <div style={{ textAlign: "center" }}>
-            <div style={{ fontWeight: 800, fontSize: 17 }}>BT Bilgi Bankası</div>
-            <div style={{ fontSize: 12, color: PAL.soluk2 }}>Personel girişi</div>
+            <div style={{ fontWeight: 800, fontSize: 18, letterSpacing: 0.5 }}>SITMS</div>
+            <div style={{ fontSize: 12, color: PAL.soluk }}>Semak IT Management Systems</div>
+            <div style={{ fontSize: 11.5, color: PAL.soluk2, marginTop: 2 }}>Personel girişi</div>
           </div>
         </div>
 
