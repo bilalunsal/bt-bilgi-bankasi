@@ -1,4 +1,5 @@
-// Uyarilar.jsx — garanti / lisans / sozlesme bitis uyarilari panosu.
+// Uyarilar.jsx — bitis uyarilari panosu (garanti / lisans / sozlesme / alan adi / SSL).
+// Tamamen jenerik: /api/uyarilar ne donerse tipin ikonu + kategorisiyle cizer.
 import React, { useEffect, useState } from "react";
 import { PAL, TIP_RENK, gunFmt } from "./tema.js";
 import { api } from "./api.js";
