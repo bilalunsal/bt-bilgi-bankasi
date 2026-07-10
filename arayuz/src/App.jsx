@@ -9,6 +9,7 @@ import Uyarilar from "./Uyarilar.jsx";
 import Giris from "./Giris.jsx";
 import ParolaDegistir from "./ParolaDegistir.jsx";
 import Kullanicilar from "./Kullanicilar.jsx";
+import Ayarlar from "./Ayarlar.jsx";
 import logo from "./assets/logo-semak.jpg";
 import { LISTE_KOLON } from "./modul.js";
 
@@ -19,7 +20,7 @@ const MENU_GRUPLARI = [
   { baslik: "Alan Adı & SSL", ikon: "🌍", tipler: ["alan_adi", "ssl"] },
   { baslik: "Dokümantasyon", ikon: "📚", tipler: ["sistem", "surec", "revizyon", "bilgi"] },
   { baslik: "Kişiler & Destek", ikon: "🤝", tipler: ["personel", "talep", "tedarikci", "sozlesme"] },
-  { baslik: "Yönetim", ikon: "⚙️", ozel: ["kullanicilar"], adminGerek: true },
+  { baslik: "Yönetim", ikon: "⚙️", ozel: ["kullanicilar", "ayarlar"], adminGerek: true },
 ];
 
 export default function App() {
@@ -92,6 +93,8 @@ export default function App() {
       aktif: gorunum === "uyarilar", onClick: () => setGorunum("uyarilar") },
     kullanicilar: { etiket: "Kullanıcılar", ikon: "👤", renk: PAL.mor, say: null,
       aktif: gorunum === "kullanicilar", onClick: () => setGorunum("kullanicilar") },
+    ayarlar: { etiket: "Ayarlar", ikon: "⚙️", renk: PAL.soluk, say: null,
+      aktif: gorunum === "ayarlar", onClick: () => setGorunum("ayarlar") },
   };
   const grupCocuklari = (grup) => {
     const out = [];
@@ -246,6 +249,9 @@ export default function App() {
           )}
           {gorunum === "kullanicilar" && ben.rol === "admin" && (
             <Kullanicilar ben={ben} />
+          )}
+          {gorunum === "ayarlar" && ben.rol === "admin" && (
+            <Ayarlar />
           )}
           {gorunum === "liste" && (
             <Liste sonuclar={sonuclar} yukleniyor={yukleniyor} tipMeta={tipMeta} q={q}

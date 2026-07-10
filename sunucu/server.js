@@ -15,8 +15,13 @@ import {
   girisDene, oturumKullanici, oturumKapat, kullaniciBulKadi,
   kullaniciListe, kullaniciEkle, kullaniciDurum, kullaniciRol, parolaDegistir, parolaDogru,
   zimmetAta, zimmetIade, zimmetAktif, zimmetGecmisi, personelZimmetleri,
+  ayarlariGetir, ayarlariKaydet,
 } from "./db.js";
+import { epostaTest } from "./eposta.js";
 import { ILISKI_TURLERI, ZIMMETLENEBILIR } from "./tohum-alanlar.js";
+
+// Ayarlarda gizli/parola alanlari — istemciye ASLA duz gonderilmez (yalniz "var mi" bilgisi).
+const GIZLI_AYAR = new Set(["smtp_parola"]);
 
 const META_URL = (typeof __dirname !== "undefined") ? pathToFileURL(__dirname + "/").href : import.meta.url;
 const BU_KLASOR = dirname(fileURLToPath(META_URL));
@@ -34,8 +39,11 @@ app.use(express.json({ limit: "30mb" })); // base64 ekler icin (25MB ham → ~34
 app.use((_req, res, next) => { res.set("Cache-Control", "no-store"); next(); });
 
 const sarmala = (fn) => (req, res) => {
-  try { fn(req, res); }
-  catch (e) { console.error(e); res.status(500).json({ hata: e.message }); }
+  try {
+    const r = fn(req, res);
+    // async handler'lar icin: promise reddini de yakala (yoksa 500 asilir kalir)
+    if (r && typeof r.then === "function") r.catch((e) => { console.error(e); if (!res.headersSent) res.status(500).json({ hata: e.message }); });
+  } catch (e) { console.error(e); if (!res.headersSent) res.status(500).json({ hata: e.message }); }
 };
 
 // ── Kimlik dogrulama (cerez tabanli oturum) ──────────────────────────────────
@@ -109,6 +117,36 @@ app.post("/api/kullanicilar/:id/durum", sarmala((req, res) => {
 app.post("/api/kullanicilar/:id/rol", sarmala((req, res) => {
   if (!adminGerek(req, res)) return;
   res.json({ ok: kullaniciRol(db, Number(req.params.id), (req.body || {}).rol) });
+}));
+
+// ── Ayarlar (yalnizca admin) — SMTP / e-posta bildirim ───────────────────────
+// GET: parola alanlari MASKELENIR (smtp_parola_var: true/false doner, deger gitmez).
+app.get("/api/ayarlar", sarmala((req, res) => {
+  if (!adminGerek(req, res)) return;
+  const ham = ayarlariGetir(db);
+  const cikti = {};
+  for (const [k, v] of Object.entries(ham)) { if (!GIZLI_AYAR.has(k)) cikti[k] = v; }
+  cikti.smtp_parola_var = !!ham.smtp_parola; // parola tanimli mi (deger gonderilmez)
+  res.json(cikti);
+}));
+// PUT: gonderilen anahtarlari yazar. Parola BOS gelirse mevcut deger KORUNUR (ezilmez).
+app.put("/api/ayarlar", sarmala((req, res) => {
+  if (!adminGerek(req, res)) return;
+  const g = req.body || {};
+  const yaz = {};
+  const IZIN = ["smtp_host", "smtp_port", "smtp_kullanici", "smtp_gonderen",
+    "bildirim_hedef", "bildirim_aktif", "bildirim_yeni_talep"];
+  for (const k of IZIN) if (k in g) yaz[k] = g[k] == null ? "" : String(g[k]);
+  // Parola: sadece dolu geldiyse guncelle (bos string → dokunma)
+  if (typeof g.smtp_parola === "string" && g.smtp_parola.length > 0) yaz.smtp_parola = g.smtp_parola;
+  ayarlariKaydet(db, yaz);
+  res.json({ ok: true });
+}));
+// Test maili gonder (ana anahtardan bagimsiz). Opsiyonel { kime }.
+app.post("/api/ayarlar/eposta-test", sarmala(async (req, res) => {
+  if (!adminGerek(req, res)) return;
+  const sonuc = await epostaTest(db, (req.body || {}).kime);
+  res.json(sonuc);
 }));
 
 // ── Meta ────────────────────────────────────────────────────────────────────

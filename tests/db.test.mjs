@@ -10,7 +10,9 @@ import {
   kullaniciBulKadi, kullaniciEkle, parolaDogru, parolaDegistir, kullaniciDurum,
   girisDene, oturumKullanici, oturumKapat,
   zimmetAta, zimmetIade, zimmetAktif, zimmetGecmisi, personelZimmetleri,
+  ayarGetir, ayarKur, ayarlariGetir, ayarlariKaydet,
 } from "../sunucu/db.js";
+import { epostaHazir, epostaGonder } from "../sunucu/eposta.js";
 
 function yeniDb() { return veritabaniAc(":memory:"); }
 
@@ -143,6 +145,29 @@ test("uyarilar: alan adi ve SSL bitisleri de takip edilir", () => {
   assert.equal(u.yakin.find(x => x.baslik === "semak.com.tr").kategori, "Alan Adı");
   assert.equal(u.gecmis.find(x => x.baslik === "*.semak.com.tr").kategori, "SSL");
   assert.ok(!yakinBasliklar.includes("uzak.com") && !gecmisBasliklar.includes("uzak.com"), "uzak tarih haric");
+});
+
+test("ayarlar: K/V yaz-oku, ayarlariKaydet undefined'i atlar (parola korunur)", () => {
+  const db = yeniDb();
+  assert.equal(ayarGetir(db, "smtp_host", "yok"), "yok", "tanimsiz anahtar varsayilani doner");
+  ayarKur(db, "smtp_host", "smtp.office365.com");
+  ayarKur(db, "smtp_parola", "gizli123");
+  assert.equal(ayarGetir(db, "smtp_host"), "smtp.office365.com");
+  // undefined atlanmali → parola korunur; string alanlar guncellenir
+  ayarlariKaydet(db, { smtp_host: "smtp.yeni.com", smtp_parola: undefined, smtp_kullanici: "admin@semak.com.tr" });
+  assert.equal(ayarGetir(db, "smtp_host"), "smtp.yeni.com", "host guncellendi");
+  assert.equal(ayarGetir(db, "smtp_parola"), "gizli123", "undefined parola korundu");
+  assert.equal(ayarGetir(db, "smtp_kullanici"), "admin@semak.com.tr");
+  const hepsi = ayarlariGetir(db);
+  assert.equal(hepsi.smtp_kullanici, "admin@semak.com.tr");
+});
+
+test("eposta: yapilandirilmamis iken gonderim SESSIZCE atlanir (ana akis kirilmaz)", async () => {
+  const db = yeniDb();
+  assert.equal(epostaHazir(db), false, "bos DB'de SMTP hazir degil");
+  const r = await epostaGonder(db, { kime: "x@y.com", konu: "test", metin: "gövde" });
+  assert.equal(r.ok, false);
+  assert.equal(r.atlandi, true, "yapilandirilmamis → atlandi, exception yok");
 });
 
 test("musteri token: uretim, dogrulama, yenileme, pasiflestirme", () => {

@@ -173,6 +173,15 @@ function semaKur(db) {
       olusturma  TEXT NOT NULL
     );
 
+    -- AYARLAR — anahtar/deger (SMTP/e-posta bildirim yapilandirmasi vb.). Tekil satirlar.
+    -- NOT: smtp_parola duz metin saklanir (SMTP'ye baglanmak icin geri-cevrilebilir olmali).
+    -- Tehdit modeli: LAN ve DB zaten diger sirlari (token/hash) tutuyor; yalnizca admin erisir.
+    CREATE TABLE IF NOT EXISTS ayarlar (
+      anahtar    TEXT PRIMARY KEY,
+      deger      TEXT,
+      guncelleme TEXT
+    );
+
     -- TAM METIN ARAMA (FTS5). Turkce: unicode61 + remove_diacritics 2 (kucuk harf + aksan-duyarsiz).
     -- rowid = kayitlar.id. Icerik elle bakimi yapilir (ftsYaz).
     CREATE VIRTUAL TABLE IF NOT EXISTS kayit_fts USING fts5(
@@ -677,6 +686,31 @@ export function talepEkle(db, { musteri_id = null, musteri = null, konu, iletisi
       kaynak,
     },
   });
+}
+
+// ── AYARLAR (anahtar/deger) ──────────────────────────────────────────────────
+// SMTP/e-posta bildirim ayarlari burada durur. Cok kayit olmadigi icin basit K/V.
+export function ayarGetir(db, anahtar, varsayilan = null) {
+  const r = db.prepare("SELECT deger FROM ayarlar WHERE anahtar = ?").get(anahtar);
+  return r ? r.deger : varsayilan;
+}
+export function ayarlariGetir(db) {
+  const out = {};
+  for (const r of db.prepare("SELECT anahtar, deger FROM ayarlar").all()) out[r.anahtar] = r.deger;
+  return out;
+}
+export function ayarKur(db, anahtar, deger) {
+  db.prepare(`INSERT INTO ayarlar (anahtar, deger, guncelleme) VALUES (?, ?, ?)
+    ON CONFLICT(anahtar) DO UPDATE SET deger = excluded.deger, guncelleme = excluded.guncelleme`)
+    .run(anahtar, deger == null ? null : String(deger), simdi());
+}
+// Bir nesnedeki tum anahtarlari yazar. deger'i undefined olan anahtarlar ATLANIR
+// (orn. bos birakilan parola mevcut degeri ezmesin diye cagiran undefined gonderir).
+export function ayarlariKaydet(db, nesne) {
+  for (const [k, v] of Object.entries(nesne || {})) {
+    if (v === undefined) continue;
+    ayarKur(db, k, v);
+  }
 }
 
 export { TIPLER };

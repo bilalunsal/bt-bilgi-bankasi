@@ -1,0 +1,115 @@
+// eposta.js — SMTP e-posta bildirim sarmalayicisi (Office 365 varsayilanli).
+// Ilke: bildirim GONDERIMI ana akisi ASLA kirmaz. Yapilandirilmamis/kapali/hatali ise
+// sessizce { ok:false, atlandi:true } doner, exception firlatmaz. nodemailer DINAMIK import
+// edilir → paket kurulu degilse (offline zip) sunucu yine calisir, e-posta no-op olur.
+import { ayarlariGetir } from "./db.js";
+
+// Office 365 icin makul varsayilanlar. Kullanici (admin) ayarlar ekranindan gunceller.
+const VARSAYILAN = {
+  smtp_host: "smtp.office365.com",
+  smtp_port: "587",              // 587 = STARTTLS (secure:false, requireTLS:true); 465 = SSL (secure:true)
+  smtp_kullanici: "",            // orn: admin@semak.com.tr
+  smtp_parola: "",               // duz metin (DB), yalniz admin erisir
+  smtp_gonderen: "",             // From adresi; bos ise smtp_kullanici kullanilir
+  bildirim_hedef: "",            // IT bildirim alicilari (virgulle birden fazla)
+  bildirim_aktif: "1",           // ana anahtar
+  bildirim_yeni_talep: "1",      // yeni musteri talebi gelince mail at
+};
+
+export function epostaAyarlari(db) {
+  return { ...VARSAYILAN, ...ayarlariGetir(db) };
+}
+
+// Gonderim icin yeterli yapilandirma var mi? (host + kullanici + parola)
+export function epostaHazir(db) {
+  const a = epostaAyarlari(db);
+  return !!(a.smtp_host && a.smtp_kullanici && a.smtp_parola);
+}
+
+// Bildirimler acik mi? (ana anahtar). Test maili bu anahtardan BAGIMSIZ gonderilir.
+export function bildirimAcik(db) {
+  return epostaAyarlari(db).bildirim_aktif === "1";
+}
+
+export function bildirimHedefleri(db) {
+  const a = epostaAyarlari(db);
+  const ham = a.bildirim_hedef || a.smtp_gonderen || a.smtp_kullanici || "";
+  return ham.split(/[,;\s]+/).map((s) => s.trim()).filter(Boolean);
+}
+
+// Dusuk hacim: her gonderimde transporter kurulur (config runtime'da degisebilir).
+async function transporterKur(a) {
+  let nodemailer;
+  try { nodemailer = (await import("nodemailer")).default; }
+  catch { throw new Error("nodemailer kurulu degil (npm install calistirin)"); }
+  const port = Number(a.smtp_port) || 587;
+  const secure = port === 465; // 465 => SSL; 587 => STARTTLS
+  return nodemailer.createTransport({
+    host: a.smtp_host,
+    port,
+    secure,
+    requireTLS: !secure,             // 587'de STARTTLS zorunlu
+    auth: { user: a.smtp_kullanici, pass: a.smtp_parola },
+  });
+}
+
+// Ana gonderim. { kime, konu, metin, html }. Asla firlatmaz.
+// zorla=true → bildirim ana anahtari kapali olsa bile gonderir (test maili icin).
+export async function epostaGonder(db, { kime, konu, metin, html, zorla = false }) {
+  try {
+    const a = epostaAyarlari(db);
+    if (!zorla && a.bildirim_aktif !== "1") return { ok: false, atlandi: true, neden: "bildirim kapali" };
+    if (!a.smtp_host || !a.smtp_kullanici || !a.smtp_parola) return { ok: false, atlandi: true, neden: "SMTP yapilandirilmadi" };
+    const alicilar = Array.isArray(kime) ? kime.filter(Boolean) : String(kime || "").split(/[,;\s]+/).map((s) => s.trim()).filter(Boolean);
+    if (alicilar.length === 0) return { ok: false, atlandi: true, neden: "alici yok" };
+    const gonderen = a.smtp_gonderen || a.smtp_kullanici;
+    const t = await transporterKur(a);
+    // Konu musteri verisi icerebilir → CRLF temizle (baslik enjeksiyonuna karsi savunma derinligi).
+    const konuTemiz = String(konu ?? "").replace(/[\r\n]+/g, " ").slice(0, 200);
+    const bilgi = await t.sendMail({ from: gonderen, to: alicilar.join(", "), subject: konuTemiz, text: metin, html });
+    return { ok: true, id: bilgi.messageId };
+  } catch (e) {
+    console.error("[eposta] gonderim hatasi:", e.message);
+    return { ok: false, hata: e.message };
+  }
+}
+
+// Test maili — ayar ekranindaki "Test Gonder" butonu icin. Ana anahtardan bagimsiz.
+export async function epostaTest(db, kime) {
+  const a = epostaAyarlari(db);
+  const hedef = kime || bildirimHedefleri(db)[0] || a.smtp_kullanici;
+  if (!hedef) return { ok: false, hata: "Alici adresi yok (bildirim hedefi / SMTP kullanicisi bos)" };
+  return epostaGonder(db, {
+    kime: hedef,
+    konu: "SITMS · Test e-postasi",
+    metin: "Bu bir test e-postasidir. SITMS e-posta bildirimleri calisiyor.\n\nSemak IT Management Systems",
+    html: `<div style="font-family:system-ui,Segoe UI,sans-serif;font-size:14px;color:#0F1420">
+      <p>✅ Bu bir <b>test e-postasidir</b>. SITMS e-posta bildirimleri çalışıyor.</p>
+      <p style="color:#6B7896;font-size:12px">Semak IT Management Systems</p></div>`,
+    zorla: true,
+  });
+}
+
+// Yeni musteri talebi bildirimi (intake'ten cagrilir). Talep kaydi + musteri adi verilir.
+export async function yeniTalepBildir(db, { baslik, musteri, kategori, aciklama, iletisim, id }) {
+  const a = epostaAyarlari(db);
+  if (a.bildirim_yeni_talep !== "1") return { ok: false, atlandi: true, neden: "yeni talep bildirimi kapali" };
+  const hedef = bildirimHedefleri(db);
+  if (hedef.length === 0) return { ok: false, atlandi: true, neden: "hedef yok" };
+  const esc = (s) => String(s ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+  return epostaGonder(db, {
+    kime: hedef,
+    konu: `🎫 Yeni destek talebi: ${baslik}`.slice(0, 180),
+    metin: `Yeni müşteri talebi geldi.\n\nMüşteri: ${musteri || "-"}\nKonu: ${baslik}\nKategori: ${kategori || "-"}\nİletişim: ${iletisim || "-"}\n\nAçıklama:\n${aciklama || "-"}`,
+    html: `<div style="font-family:system-ui,Segoe UI,sans-serif;font-size:14px;color:#0F1420">
+      <h2 style="margin:0 0 8px">🎫 Yeni destek talebi</h2>
+      <table style="font-size:14px;border-collapse:collapse">
+        <tr><td style="color:#6B7896;padding:2px 10px 2px 0">Müşteri</td><td><b>${esc(musteri) || "-"}</b></td></tr>
+        <tr><td style="color:#6B7896;padding:2px 10px 2px 0">Konu</td><td><b>${esc(baslik)}</b></td></tr>
+        <tr><td style="color:#6B7896;padding:2px 10px 2px 0">Kategori</td><td>${esc(kategori) || "-"}</td></tr>
+        <tr><td style="color:#6B7896;padding:2px 10px 2px 0">İletişim</td><td>${esc(iletisim) || "-"}</td></tr>
+      </table>
+      <p style="white-space:pre-wrap;margin-top:12px">${esc(aciklama) || "-"}</p>
+      <p style="color:#6B7896;font-size:12px;margin-top:16px">SITMS · talep #${esc(id)} · personel panelinden görüntüleyin</p></div>`,
+  });
+}

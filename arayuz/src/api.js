@@ -53,6 +53,10 @@ export const api = {
   kullaniciSifirla: (id, yeni) => iste(`/api/kullanicilar/${id}/sifirla`, { method: "POST", body: JSON.stringify({ yeni }) }),
   kullaniciDurum: (id, aktif) => iste(`/api/kullanicilar/${id}/durum`, { method: "POST", body: JSON.stringify({ aktif }) }),
   kullaniciRol: (id, rol) => iste(`/api/kullanicilar/${id}/rol`, { method: "POST", body: JSON.stringify({ rol }) }),
+  // ── Ayarlar (SMTP / e-posta bildirim) — admin ──
+  ayarlar: () => iste("/api/ayarlar"),
+  ayarlariKaydet: (a) => iste("/api/ayarlar", { method: "PUT", body: JSON.stringify(a) }),
+  epostaTest: (kime) => iste("/api/ayarlar/eposta-test", { method: "POST", body: JSON.stringify({ kime }) }),
 };
 
 // Dosyayi base64'e cevir (data URL onekini ayikla)

@@ -5,6 +5,7 @@ import express from "express";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { veritabaniAc, musteriBulToken, talepEkle } from "./db.js";
+import { yeniTalepBildir } from "./eposta.js";
 
 const META_URL = (typeof __dirname !== "undefined") ? pathToFileURL(__dirname + "/").href : import.meta.url;
 const PROJE_KOK = resolve(dirname(fileURLToPath(META_URL)), "..");
@@ -92,14 +93,17 @@ app.post("/t/:token", (req, res) => {
     return res.status(400).send(sayfa("Eksik bilgi",
       `<h1>Eksik alan</h1><div class="alt">Konu ve açıklama zorunludur. <a style="color:#36C9B5" href="/t/${esc(req.params.token)}">Geri dön</a></div>`));
   }
-  talepEkle(db, {
+  const kategori = String(b.kategori || "").slice(0, 40) || null;
+  const iletisim = String(b.iletisim || "").slice(0, 200) || null;
+  const talepId = talepEkle(db, {
     musteri_id: m.id, musteri: m.ad,
-    konu, aciklama,
-    kategori: String(b.kategori || "").slice(0, 40) || null,
-    iletisim: String(b.iletisim || "").slice(0, 200) || null,
+    konu, aciklama, kategori, iletisim,
     ilgili_cihaz: String(b.ilgili_cihaz || "").slice(0, 300) || null,
     kaynak: "intake",
   });
+  // IT'ye bildirim maili — ana akisi (musteriye yanit) ASLA bloklamaz/kirmaz.
+  yeniTalepBildir(db, { id: talepId, baslik: konu, musteri: m.ad, kategori, iletisim, aciklama })
+    .catch((e) => console.error("[intake] bildirim hatasi:", e.message));
   res.send(sayfa("Talebiniz alındı", `<div class="ok"><div class="im">✅</div>
     <h1>Talebiniz alındı</h1><div class="alt">En kısa sürede sizinle iletişime geçeceğiz. Bu pencereyi kapatabilirsiniz.</div></div>`));
 });
