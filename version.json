@@ -1,7 +1,7 @@
 {
-  "version": "1.0.0",
-  "yapim": 10,
+  "version": "1.1.0",
+  "yapim": 11,
   "ad": "SITMS",
   "tamAd": "IT Management Systems",
-  "not": "Faz 9 + e-posta bildirim (SMTP/O365) + white-label marka + surum takibi"
+  "not": "Otomatik yedekleme (ikinci disk/ag paylasimi) + form focus fix + menu akordeon"
 }
