@@ -8,6 +8,20 @@ import { formBolumleri } from "./modul.js";
 
 const ONCELIKLER = ["Düşük", "Orta", "Yüksek", "Kritik"];
 
+// ÖNEMLİ: Bu bileşen KayitForm'un DIŞINDA (modül seviyesinde) durmalı. İçeride tanımlanırsa
+// her render'da yeni fonksiyon kimliği olur → React alt ağacı unmount/remount eder → her tuşta
+// input focus'u kaybolur ve imleç başlığa (autoFocus) fırlar. (Faz 8 regresyonu, düzeltildi.)
+function Etiketli({ baslik, zorunlu, children }) {
+  return (
+    <label style={{ display: "block", marginBottom: 14 }}>
+      <div style={{ fontSize: 12.5, color: PAL.soluk, marginBottom: 5, fontWeight: 600 }}>
+        {baslik} {zorunlu && <span style={{ color: PAL.rose }}>*</span>}
+      </div>
+      {children}
+    </label>
+  );
+}
+
 export default function KayitForm({ tip, tipMeta, mevcut, zimmetlenebilir = [], onKaydet, onIptal }) {
   const meta = tipMeta[tip];
   const fm = meta?.form || { baslikEtiket: "Başlık", baslikOrnek: "", oncelik: false, konum: false };
@@ -54,15 +68,6 @@ export default function KayitForm({ tip, tipMeta, mevcut, zimmetlenebilir = [], 
 
   if (hata && !alanlar) return <div style={{ color: PAL.rose, padding: 20 }}>{hata}</div>;
   if (!alanlar) return <Yukleniyor />;
-
-  const Etiketli = ({ baslik, zorunlu, children }) => (
-    <label style={{ display: "block", marginBottom: 14 }}>
-      <div style={{ fontSize: 12.5, color: PAL.soluk, marginBottom: 5, fontWeight: 600 }}>
-        {baslik} {zorunlu && <span style={{ color: PAL.rose }}>*</span>}
-      </div>
-      {children}
-    </label>
-  );
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto" }}>
