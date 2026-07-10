@@ -256,12 +256,23 @@ app.post("/api/musteriler/:id/durum", sarmala((req, res) => {
 }));
 
 // ── Statik arayuz (arayuz/dist varsa) ────────────────────────────────────────
+// Tarayici ONBELLEK TUTMASIN: express.static/sendFile kendi ETag/Cache-Control'unu koyar,
+// bu da guncelleme sonrasi eski surumun kalmasina yol acar. Hepsini no-store yapiyoruz
+// (LAN'de dosyalar kucuk; her yuklemede taze gelir → guncelleme aninda gorunur).
+const CACHE_YOK = "no-store, no-cache, must-revalidate, max-age=0";
 const DIST = join(PROJE_KOK, "arayuz", "dist");
 if (existsSync(DIST)) {
-  app.use(express.static(DIST));
-  app.get(/^\/(?!api\/).*/, (_req, res) => res.sendFile(join(DIST, "index.html")));
+  app.use(express.static(DIST, {
+    etag: false,
+    lastModified: false,
+    setHeaders: (res) => res.set("Cache-Control", CACHE_YOK),
+  }));
+  app.get(/^\/(?!api\/).*/, (_req, res) => {
+    res.set("Cache-Control", CACHE_YOK);
+    res.sendFile(join(DIST, "index.html"), { etag: false, lastModified: false, cacheControl: false });
+  });
 }
 
 app.listen(PORT, () => {
-  console.log(`BT Bilgi Bankasi API → http://localhost:${PORT}  (db: ${db ? "acik" : "?"})`);
+  console.log(`SITMS API → http://localhost:${PORT}  (db: ${db ? "acik" : "?"})`);
 });
