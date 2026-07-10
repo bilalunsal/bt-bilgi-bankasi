@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { PAL } from "./tema.js";
 import { api } from "./api.js";
 import { Buton, girdiStil } from "./ui.jsx";
+import logo from "./assets/logo-semak.jpg";
 
 export default function Giris({ onGiris }) {
   const [kadi, setKadi] = useState("");
@@ -22,10 +23,12 @@ export default function Giris({ onGiris }) {
   return (
     <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: PAL.bg }}>
       <form onSubmit={gir} style={{ width: 360, background: PAL.surface, border: `1px solid ${PAL.cizgi}`, borderRadius: 16, padding: 28 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
-          <div style={{ width: 34, height: 34, borderRadius: 9, background: `linear-gradient(135deg, ${PAL.teal}, ${PAL.mavi})`, display: "grid", placeItems: "center", fontWeight: 900, color: "#06231F" }}>B</div>
-          <div>
-            <div style={{ fontWeight: 800, fontSize: 16 }}>BT Bilgi Bankası</div>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, marginBottom: 22 }}>
+          <div style={{ background: "#fff", borderRadius: 10, padding: "10px 16px", display: "flex" }}>
+            <img src={logo} alt="SEMAK" style={{ height: 46, display: "block" }} />
+          </div>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontWeight: 800, fontSize: 17 }}>BT Bilgi Bankası</div>
             <div style={{ fontSize: 12, color: PAL.soluk2 }}>Personel girişi</div>
           </div>
         </div>

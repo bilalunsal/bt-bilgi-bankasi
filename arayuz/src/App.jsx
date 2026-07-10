@@ -9,6 +9,7 @@ import Uyarilar from "./Uyarilar.jsx";
 import Giris from "./Giris.jsx";
 import ParolaDegistir from "./ParolaDegistir.jsx";
 import Kullanicilar from "./Kullanicilar.jsx";
+import logo from "./assets/logo-semak.jpg";
 
 // Sol menu gruplari (FortiGate tarzi acilir-kapanir). tipler API'den gelir; burada gruplanir.
 const MENU_GRUPLARI = [
@@ -136,8 +137,10 @@ export default function App() {
         display: "flex", alignItems: "center", gap: 16, padding: "12px 20px",
         borderBottom: `1px solid ${PAL.cizgi}`, background: PAL.bg2, position: "sticky", top: 0, zIndex: 20,
       }}>
-        <div onClick={() => { setGorunum("liste"); setAktifTip(""); setAktifDurum(""); }} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 30, height: 30, borderRadius: 8, background: `linear-gradient(135deg, ${PAL.teal}, ${PAL.mavi})`, display: "grid", placeItems: "center", fontWeight: 900, color: "#06231F" }}>B</div>
+        <div onClick={() => { setGorunum("liste"); setAktifTip(""); setAktifDurum(""); }} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ background: "#fff", borderRadius: 6, padding: "3px 7px", display: "flex", alignItems: "center" }}>
+            <img src={logo} alt="SEMAK" style={{ height: 26, display: "block" }} />
+          </div>
           <div style={{ fontWeight: 800, fontSize: 16 }}>BT Bilgi Bankası</div>
         </div>
 
