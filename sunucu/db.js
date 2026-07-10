@@ -23,6 +23,9 @@ if (!existsSync(DB_DIR)) mkdirSync(DB_DIR, { recursive: true });
 // Test icin bellek-ici veritabani acilabilsin diye fabrika. Uretimde varsayilan dosya.
 export function veritabaniAc(yol = DB_YOL) {
   const db = new DatabaseSync(yol);
+  // Iki servis (8793 ana + 8795 intake) ayni dosyayi acar. Kilitliyse ANINDA hata verme,
+  // 8 sn bekle (yoksa acilis migrasyonunda "database is locked"). WAL + busy_timeout birlikte.
+  db.exec("PRAGMA busy_timeout = 8000");
   db.exec("PRAGMA journal_mode = WAL");
   db.exec("PRAGMA foreign_keys = ON");
   semaKur(db);
@@ -557,8 +560,9 @@ export function parolaDogru(parola, saklanan) {
 export function varsayilanKullanici(db) {
   const say = Number(db.prepare("SELECT COUNT(*) n FROM kullanicilar").get().n);
   if (say > 0) return;
+  // OR IGNORE: iki servis ayni anda tohumlarsa ikincisi cakismaz (UNIQUE kadi).
   db.prepare(
-    "INSERT INTO kullanicilar (kadi, ad, parola, rol, aktif, sifre_yenile, olusturma) VALUES (?, ?, ?, 'admin', 1, 1, ?)"
+    "INSERT OR IGNORE INTO kullanicilar (kadi, ad, parola, rol, aktif, sifre_yenile, olusturma) VALUES (?, ?, ?, 'admin', 1, 1, ?)"
   ).run("admin", "Yönetici", parolaKur("admin"), simdi());
 }
 
