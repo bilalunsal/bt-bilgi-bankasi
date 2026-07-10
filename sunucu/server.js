@@ -17,7 +17,7 @@ import {
   zimmetAta, zimmetIade, zimmetAktif, zimmetGecmisi, personelZimmetleri,
   ayarGetir, ayarKur, ayarlariGetir, ayarlariKaydet, musteriGetir,
 } from "./db.js";
-import { epostaTest, musteriDurumBildir, musteriYanitBildir } from "./eposta.js";
+import { epostaTest, musteriDurumBildir, musteriYanitBildir, disKaynakBildir } from "./eposta.js";
 import { yedekConfig, yedekAl, yedekListe, otomatikYedekDene, YEDEK_ADI_DESEN } from "./yedek.js";
 import { ILISKI_TURLERI, ZIMMETLENEBILIR } from "./tohum-alanlar.js";
 
@@ -137,7 +137,7 @@ app.put("/api/ayarlar", sarmala((req, res) => {
   const g = req.body || {};
   const yaz = {};
   const IZIN = ["smtp_host", "smtp_port", "smtp_kullanici", "smtp_gonderen",
-    "bildirim_hedef", "bildirim_aktif", "bildirim_yeni_talep", "bildirim_musteri_durum",
+    "bildirim_hedef", "bildirim_aktif", "bildirim_yeni_talep", "bildirim_musteri_durum", "bildirim_dis_kaynak",
     "marka_ad", "marka_tam",
     "yedek_aktif", "yedek_klasor", "yedek_tut"];
   for (const k of IZIN) if (k in g) yaz[k] = g[k] == null ? "" : String(g[k]);
@@ -273,11 +273,27 @@ app.get("/api/kayit/:id", sarmala((req, res) => {
   }
   res.json(cikti);
 }));
+// Talep DIS KAYNAGA yonlendirilmisse (hedef_tur=Dış Kaynak + dis_kaynak yeni/degismis) dis kisiye mail.
+function disKaynakDene(guncel, oncekiDisId) {
+  if (guncel?.tip !== "talep") return;
+  const v = guncel.veri || {};
+  if (v.hedef_tur !== "Dış Kaynak" || !v.dis_kaynak) return;
+  if (String(v.dis_kaynak) === String(oncekiDisId ?? "")) return; // atama degismedi → tekrar gonderme
+  const kisi = kayitGetir(db, v.dis_kaynak);
+  const eposta = kisi?.veri?.email;
+  if (eposta) {
+    disKaynakBildir(db, { epostaAdres: eposta, baslik: guncel.baslik, aciklama: v.aciklama, talepId: guncel.id, marka: ayarGetir(db, "marka_tam", "Destek") })
+      .catch((e) => console.error("[dis kaynak bildirimi]", e.message));
+  }
+}
+
 app.post("/api/kayit", sarmala((req, res) => {
   const g = req.body || {};
   if (!g.tip || !g.baslik) return res.status(400).json({ hata: "tip ve baslik zorunlu" });
   const id = kayitEkle(db, g);
-  res.status(201).json(kayitGetir(db, id));
+  const yeni = kayitGetir(db, id);
+  disKaynakDene(yeni, null);
+  res.status(201).json(yeni);
 }));
 app.put("/api/kayit/:id", sarmala((req, res) => {
   const id = Number(req.params.id);
@@ -285,6 +301,8 @@ app.put("/api/kayit/:id", sarmala((req, res) => {
   const ok = kayitGuncelle(db, id, req.body || {});
   if (!ok) return res.status(404).json({ hata: "Kayit bulunamadi" });
   const guncel = kayitGetir(db, id);
+  // Talep dis kaynaga (yeni/degismis) yonlendirildiyse dis kisiye mail.
+  disKaynakDene(guncel, onceki?.veri?.dis_kaynak);
   // Talep durumu degistiyse MUSTERIYE bildirim (varsa e-posta). Ana akisi bloklamaz.
   if (onceki && guncel && guncel.tip === "talep" && onceki.durum !== guncel.durum) {
     const mid = guncel.veri?.musteri_id;

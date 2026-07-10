@@ -90,6 +90,7 @@ export default function Ayarlar() {
         bildirim_aktif: a.bildirim_aktif ?? VARSAYILAN.bildirim_aktif,
         bildirim_yeni_talep: a.bildirim_yeni_talep ?? VARSAYILAN.bildirim_yeni_talep,
         bildirim_musteri_durum: a.bildirim_musteri_durum ?? "1",
+        bildirim_dis_kaynak: a.bildirim_dis_kaynak ?? "1",
         yedek_aktif: a.yedek_aktif ?? "0",
         yedek_klasor: a.yedek_klasor ?? "",
         yedek_tut: a.yedek_tut ?? "14",
@@ -199,6 +200,9 @@ export default function Ayarlar() {
         <div style={{ borderTop: `1px solid ${PAL.cizgi}` }} />
         <Anahtar acik={f.bildirim_musteri_durum === "1"} onToggle={() => toggle("bildirim_musteri_durum")}
           baslik="Müşteriye durum / yanıt e-postası" aciklama="Talebin durumu değişince veya müşteriye görünür yanıt yazılınca müşteriye bildirim (e-postası kayıtlıysa)." />
+        <div style={{ borderTop: `1px solid ${PAL.cizgi}` }} />
+        <Anahtar acik={f.bildirim_dis_kaynak === "1"} onToggle={() => toggle("bildirim_dis_kaynak")}
+          baslik="Dış kaynağa yönlendirme e-postası" aciklama="Talep bir dış kişiye yönlendirilince, o kişinin e-postasına talep detayı otomatik gönderilir." />
         <div style={{ marginTop: 10 }}>
           <Etiket baslik="Bildirim alıcı(ları)" ipucu="Birden fazla için virgülle ayırın.">
             <input style={girdiStil} value={f.bildirim_hedef} onChange={(e) => set("bildirim_hedef", e.target.value)} placeholder="admin@semak.com.tr" />

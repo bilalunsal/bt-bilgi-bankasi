@@ -43,8 +43,14 @@ export const BOLUMLER = {
     { baslik: "Notlar", kodlar: ["notlar"] },
   ],
   talep: [
+    { baslik: "Yönlendirme", kodlar: ["hedef_tur", "dis_kaynak"] },
     { baslik: "Talep", kodlar: ["musteri", "iletisim", "kategori", "ilgili_cihaz"] },
     { baslik: "Açıklama", kodlar: ["aciklama"] },
+  ],
+  dis_kisi: [
+    { baslik: "Kişi", kodlar: ["firma", "uzmanlik"] },
+    { baslik: "İletişim", kodlar: ["email", "telefon"] },
+    { baslik: "Notlar", kodlar: ["notlar"] },
   ],
   sistem: [
     { baslik: "Sistem", kodlar: ["musteri", "teknoloji", "ortam", "sorumlu", "repo", "mevcut_surum"] },
@@ -76,7 +82,8 @@ export const LISTE_KOLON = {
   ag: [{ v: "kategori" }, { v: "ip_araligi" }, { v: "vlan", et: "VLAN" }],
   alan_adi: [{ v: "kayit_yeri", et: "Kayıt" }, { v: "bitis", et: "Bitiş" }, { v: "otomatik_yenileme", et: "Oto" }],
   ssl: [{ v: "saglayici", et: "CA" }, { v: "tur" }, { v: "bitis", et: "Bitiş" }],
-  talep: [{ v: "musteri" }, { v: "kategori" }],
+  talep: [{ v: "musteri" }, { v: "kategori" }, { v: "hedef_tur", et: "Hedef" }],
+  dis_kisi: [{ v: "firma" }, { v: "uzmanlik" }, { v: "email" }],
   sistem: [{ v: "teknoloji" }, { v: "mevcut_surum", et: "Sürüm" }, { v: "ortam" }],
   surec: [{ v: "sistem" }, { v: "hedef" }, { v: "kategori" }],
   revizyon: [{ v: "sistem" }, { v: "surum_no", et: "Sürüm" }],

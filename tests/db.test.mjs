@@ -270,6 +270,17 @@ test("talep tipi katalogda tanimli", () => {
   assert.ok(alan.find(a => a.kod === "aciklama"), "talep.aciklama alani olmali");
 });
 
+test("yonlendirme: dis_kisi tipi + talep hedef alanlari katalogda", () => {
+  const db = yeniDb();
+  const dk = alanTanimlari(db, "dis_kisi");
+  assert.ok(dk.find(a => a.kod === "email"), "dis_kisi.email olmali (dis kaynak bildirimi icin)");
+  const talep = alanTanimlari(db, "talep");
+  const hedef = talep.find(a => a.kod === "hedef_tur");
+  assert.ok(hedef && hedef.secenekler.includes("Dış Kaynak"), "talep.hedef_tur secenekleri");
+  const disK = talep.find(a => a.kod === "dis_kaynak");
+  assert.equal(disK?.iliski_tip, "dis_kisi", "dis_kaynak -> dis_kisi iliskisi");
+});
+
 test("auth: varsayilan admin/admin olusur, parola hash'li saklanir", () => {
   const db = yeniDb();
   const admin = kullaniciBulKadi(db, "admin");

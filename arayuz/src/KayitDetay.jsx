@@ -79,7 +79,9 @@ export default function KayitDetay({ id, tipMeta, iliskiTurleri, onDuzenle, onGe
                 {kisaAlanlar.map(([kod, v]) => (
                   <div key={kod}>
                     <div style={{ fontSize: 11.5, color: PAL.soluk2, textTransform: "uppercase", letterSpacing: 0.5 }}>{alanEtiket(kod)}</div>
-                    <div style={{ fontSize: 14, marginTop: 2, wordBreak: "break-word", whiteSpace: "pre-wrap" }}>{String(v)}</div>
+                    <div style={{ fontSize: 14, marginTop: 2, wordBreak: "break-word", whiteSpace: "pre-wrap" }}>
+                      {alanTip(kod) === "iliski" ? <IliskiDeger id={v} onGit={onGit} /> : String(v)}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -194,6 +196,20 @@ function ZimmetPanel({ k, onGit, onDegisti }) {
       )}
     </Panel>
   );
+}
+
+// Iliski alani degeri: kayit id'sini etikete cozer, tiklaninca o kayda gider.
+function IliskiDeger({ id, onGit }) {
+  const [k, setK] = useState(undefined);
+  useEffect(() => {
+    let iptal = false;
+    if (id) api.kayit(id).then((r) => { if (!iptal) setK(r); }).catch(() => { if (!iptal) setK(null); });
+    return () => { iptal = true; };
+  }, [id]);
+  if (!id) return <span>—</span>;
+  if (k === undefined) return <span style={{ color: PAL.soluk2 }}>#{String(id)}</span>;
+  if (!k) return <span style={{ color: PAL.soluk2 }}>#{String(id)} (bulunamadı)</span>;
+  return <span onClick={() => onGit && onGit(k.id)} style={{ color: PAL.teal, cursor: "pointer" }}>🔗 {k.baslik}</span>;
 }
 
 function PersonelVarliklar({ veri, tipMeta, onGit }) {

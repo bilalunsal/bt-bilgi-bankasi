@@ -1,6 +1,7 @@
 // ui.jsx — paylasilan kucuk bilesenler (yalnizca inline style).
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { PAL, TIP_RENK, durumRenk } from "./tema.js";
+import { api } from "./api.js";
 
 // Marka logosu: yuklenmis logo (data URI) varsa onu, yoksa marka adinin bas harfiyle monogram.
 // White-label: gomulu logo yok; her firma kendi logosunu Ayarlar'dan yukler.
@@ -117,9 +118,65 @@ export function AlanGirdi({ tanim, deger, onChange }) {
           {(tanim.secenekler || []).map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
       );
+    case "iliski":
+      return <IliskiGirdi tanim={tanim} deger={deger} onChange={onChange} />;
     default:
       return <input {...ortak} type="text" />;
   }
+}
+
+// Iliski alani icin form-ici SECICI: iliski_tip'teki kayitlari arar, secilen kaydin id'sini saklar,
+// etiketini rozet olarak gosterir. (Onceden ham metin/id giriliyordu — zayifti.)
+export function IliskiGirdi({ tanim, deger, onChange }) {
+  const [q, setQ] = useState("");
+  const [sonuc, setSonuc] = useState([]);
+  const [secili, setSecili] = useState(null); // { id, baslik }
+  const [odak, setOdak] = useState(false);
+
+  // Kayitli deger (id) → etiketi coz
+  useEffect(() => {
+    let iptal = false;
+    if (deger) {
+      if (!secili || String(secili.id) !== String(deger)) {
+        api.kayit(deger).then((k) => { if (!iptal) setSecili(k ? { id: k.id, baslik: k.baslik } : null); }).catch(() => { if (!iptal) setSecili(null); });
+      }
+    } else setSecili(null);
+    return () => { iptal = true; };
+  }, [deger]); // eslint-disable-line
+
+  async function ara(v) {
+    setQ(v);
+    if (v.trim().length < 2) { setSonuc([]); return; }
+    try { setSonuc(await api.ara({ q: v, tip: tanim.iliski_tip, limit: 6 })); } catch { setSonuc([]); }
+  }
+
+  if (secili) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <Rozet renk={PAL.mavi}>🔗 {secili.baslik}</Rozet>
+        <button type="button" onClick={() => { onChange(""); setSecili(null); setQ(""); }}
+          style={{ background: "none", border: "none", color: PAL.soluk2, cursor: "pointer", fontSize: 12.5 }}>değiştir</button>
+      </div>
+    );
+  }
+  return (
+    <div style={{ position: "relative" }}>
+      <input style={girdiStil} value={q} placeholder={`${tanim.etiket} ara… (en az 2 harf)`}
+        onChange={(e) => ara(e.target.value)} onFocus={() => setOdak(true)} onBlur={() => setTimeout(() => setOdak(false), 150)} />
+      {odak && sonuc.length > 0 && (
+        <div style={{ marginTop: 4, background: PAL.bg2, border: `1px solid ${PAL.cizgi}`, borderRadius: 8, overflow: "hidden" }}>
+          {sonuc.map((s) => (
+            <div key={s.id} onClick={() => { onChange(s.id); setSecili({ id: s.id, baslik: s.baslik }); setQ(""); setSonuc([]); }}
+              style={{ padding: "7px 9px", cursor: "pointer", fontSize: 13 }}
+              onMouseEnter={(e) => e.currentTarget.style.background = PAL.surface2}
+              onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+              🔗 {s.baslik}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function Yukleniyor({ metin = "Yükleniyor…" }) {

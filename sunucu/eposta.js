@@ -15,6 +15,7 @@ const VARSAYILAN = {
   bildirim_aktif: "1",           // ana anahtar
   bildirim_yeni_talep: "1",      // yeni musteri talebi / musteri yaniti gelince IT'ye mail
   bildirim_musteri_durum: "1",   // talep durumu degisince MUSTERIYE mail
+  bildirim_dis_kaynak: "1",      // talep dis kaynaga yonlendirilince DIS KISIYE mail
 };
 
 export function epostaAyarlari(db) {
@@ -141,6 +142,25 @@ export async function musteriYanitBildir(db, { epostaAdres, baslik, talepId, mar
       <p>Merhaba,</p>
       <p>"<b>${esc(baslik)}</b>" başlıklı talebinize destek ekibimiz yanıt yazdı.</p>
       <p style="color:#6B7896;font-size:12px">Detay için size iletilen bağlantıyı kullanabilirsiniz. · ${esc(marka)}</p></div>`,
+  });
+}
+
+// Talep DIS KAYNAGA yonlendirilince dis kisiye talep detayini gonder (server.js'ten).
+export async function disKaynakBildir(db, { epostaAdres, baslik, aciklama, talepId, marka = "Destek" }) {
+  const a = epostaAyarlari(db);
+  if (a.bildirim_dis_kaynak !== "1") return { ok: false, atlandi: true };
+  if (!epostaAdres) return { ok: false, atlandi: true, neden: "dis kisi e-postasi yok" };
+  const esc = (s) => String(s ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+  return epostaGonder(db, {
+    kime: epostaAdres,
+    konu: `Size yönlendirilen talep: ${baslik}`.slice(0, 180),
+    metin: `Merhaba,\n\nAşağıdaki talep tarafınıza yönlendirilmiştir:\n\nKonu: ${baslik}\n\n${aciklama || ""}\n\n${marka}`,
+    html: `<div style="font-family:system-ui,Segoe UI,sans-serif;font-size:14px;color:#0F1420">
+      <p>Merhaba,</p>
+      <p>Aşağıdaki talep tarafınıza yönlendirilmiştir:</p>
+      <p><b>${esc(baslik)}</b> <span style="color:#6B7896">(#${esc(talepId)})</span></p>
+      <p style="white-space:pre-wrap">${esc(aciklama) || ""}</p>
+      <p style="color:#6B7896;font-size:12px;margin-top:14px">${esc(marka)}</p></div>`,
   });
 }
 

@@ -80,6 +80,12 @@ export const TIPLER = [
     durumlar: ["Aktif", "Izinli", "Ayrildi"],
     varsayilanDurum: "Aktif",
   },
+  {
+    // Dis kisi / uzman — talep DIS KAYNAGA yonlendirilince atanan harici kisi (tedarikciden ayri liste).
+    kod: "dis_kisi", etiket: "Dis Kisi / Uzman", ikon: "🧑‍🔧",
+    durumlar: ["Aktif", "Pasif"],
+    varsayilanDurum: "Aktif",
+  },
 ];
 
 // Zimmet (change management) UYGULANABILEN kayit tipleri — bunlar bir personele verilebilir.
@@ -102,6 +108,7 @@ const TIP_FORM = {
   surec:     { baslikEtiket: "Doküman Başlığı",   baslikOrnek: "Örn: Patlak Resim Süreci — Teknik",  oncelik: false, konum: false },
   revizyon:  { baslikEtiket: "Revizyon Başlığı",  baslikOrnek: "Örn: v2.3 — sipariş ekranı düzeltmesi", oncelik: true, konum: false },
   personel:  { baslikEtiket: "Ad Soyad",          baslikOrnek: "Örn: Ayşe Yılmaz",                   oncelik: false, konum: false },
+  dis_kisi:  { baslikEtiket: "Ad Soyad",          baslikOrnek: "Örn: Ali Veli — Ağ Uzmanı",          oncelik: false, konum: false },
 };
 // Her TIPLER ogesine form meta'sini ekle (arayuz tipMeta[kod].form olarak okur).
 for (const t of TIPLER) t.form = TIP_FORM[t.kod] || { baslikEtiket: "Başlık", baslikOrnek: "", oncelik: false, konum: true };
@@ -202,7 +209,17 @@ export const ALANLAR = [
   { tip: "ssl", kod: "yillik_ucret", etiket: "Yillik Ucret", veri_tipi: "para", sira: 70 },
   { tip: "ssl", kod: "notlar", etiket: "Notlar", veri_tipi: "uzunmetin", sira: 80 },
 
+  // ── DIS KISI / UZMAN ────────────────────────────────────
+  { tip: "dis_kisi", kod: "firma", etiket: "Firma / Kurum", veri_tipi: "metin", sira: 10 },
+  { tip: "dis_kisi", kod: "uzmanlik", etiket: "Uzmanlik Alani", veri_tipi: "metin", sira: 20 },
+  { tip: "dis_kisi", kod: "email", etiket: "E-posta", veri_tipi: "eposta", sira: 30 },
+  { tip: "dis_kisi", kod: "telefon", etiket: "Telefon", veri_tipi: "metin", sira: 40 },
+  { tip: "dis_kisi", kod: "notlar", etiket: "Notlar", veri_tipi: "uzunmetin", sira: 50 },
+
   // ── MUSTERI TALEBI ──────────────────────────────────────
+  // Yonlendirme: talep IC IT ekibine mi DIS KAYNAGA mi? Dis ise dis_kaynak (dis_kisi) secilir.
+  { tip: "talep", kod: "hedef_tur", etiket: "Hedef", veri_tipi: "secim", secenekler: ["İç IT Ekibi", "Dış Kaynak"], sira: 4 },
+  { tip: "talep", kod: "dis_kaynak", etiket: "Dış Kaynak (kişi)", veri_tipi: "iliski", iliski_tip: "dis_kisi", sira: 6 },
   { tip: "talep", kod: "musteri", etiket: "Musteri", veri_tipi: "metin", sira: 10 },
   { tip: "talep", kod: "iletisim", etiket: "Iletisim (tel/e-posta)", veri_tipi: "metin", sira: 20 },
   { tip: "talep", kod: "kategori", etiket: "Kategori", veri_tipi: "secim", secenekler: ["Ariza", "Talep", "Soru", "Kurulum", "Diger"], sira: 30 },

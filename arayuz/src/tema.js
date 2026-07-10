@@ -29,6 +29,7 @@ export const TIP_RENK = {
   ag: PAL.rose,
   alan_adi: PAL.mavi,
   ssl: PAL.green,
+  dis_kisi: PAL.turuncu,
 };
 
 // Duruma gore rozet rengi (kaba eslesme)

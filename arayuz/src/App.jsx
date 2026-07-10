@@ -18,7 +18,7 @@ const MENU_GRUPLARI = [
   { baslik: "Envanter", ikon: "🗄️", tipler: ["donanim", "yazilim", "lisans", "ag"] },
   { baslik: "Alan Adı & SSL", ikon: "🌍", tipler: ["alan_adi", "ssl"] },
   { baslik: "Dokümantasyon", ikon: "📚", tipler: ["sistem", "surec", "revizyon", "bilgi"] },
-  { baslik: "Kişiler & Destek", ikon: "🤝", tipler: ["personel", "talep", "tedarikci", "sozlesme"] },
+  { baslik: "Kişiler & Destek", ikon: "🤝", tipler: ["personel", "talep", "tedarikci", "dis_kisi", "sozlesme"] },
   { baslik: "Yönetim", ikon: "⚙️", ozel: ["kullanicilar", "ayarlar"], adminGerek: true },
 ];
 
