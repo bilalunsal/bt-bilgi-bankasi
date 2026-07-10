@@ -223,10 +223,27 @@ Ortam: `PORT` (varsayılan 8793), `BILGI_DB` (varsayılan `db/bilgi.sqlite`).
       her tuşta remount → focus başlığa fırlıyordu. Modül seviyesine taşındı. Tek ortak form olduğu
       için tüm tiplerin Yeni Kayıt ekranını düzeltti.
     - **Menü akordeon:** sol menüde tek grup açık (Set → tek string), Genel varsayılan.
+- [x] **Faz 12 — Otomatik yedekleme + Müşteri talep durum takibi (portal).**
+    - **Yedekleme:** `sunucu/yedek.js` — `VACUUM INTO` ile tutarlı sıcak kopya (WAL güvenli),
+      tarihli dosya, son N adet (budama). Hedef **ikinci disk / ağ paylaşımı** (`\\SUNUCU\yedek`),
+      boşsa `<proje>/_yedekler`. Otomatik: yalnız ana süreçte, açılış+15sn / saatte bir "bugün
+      alındı mı" (günde bir). Admin uçları: POST `/api/yedek/simdi`, GET `/api/yedek/liste`,
+      GET `/api/yedek/indir` (regex ad doğrulama → path traversal engeli). UI: Ayarlar>Yedekleme.
+      `YEDEK_DIR` env. Test: VACUUM INTO geçerli kopya + budama.
+    - **Müşteri portalı (durum takibi + mesajlaşma):** `yorumlar`+`gorunur`(0/1)+`yazar_tip` (hafif
+      migrasyon `kolonEkle`, **yarış-güvenli**: iki süreç ALTER yarışında "duplicate column" yutulur).
+      DB: `musteriTalepleri/TalepGetir/MesajEkle/musteriGetir` — **her sorgu `musteri_id` filtreli**,
+      yalnız beyaz-liste alan + yalnız `gorunur=1` yorum döner (iç not/atanan **asla sızmaz**).
+      intake.js (:8795): `/t/<token>` altında **Taleplerim** (durum rozeti) · `/t/<token>/talep/:id`
+      detay+yazışma+yanıt kutusu · POST `.../mesaj` (hız sınırı+honeypot+limit). Başkasının talebi →
+      nötr 404. Personel: yorum ucunda **`gorunur`** (müşteriye görünür yanıt) + durum değişince/
+      görünür yanıtta **müşteriye e-posta** (`bildirim_musteri_durum`). eposta.js: `musteriMesajBildir`
+      (IT'ye), `musteriDurumBildir`+`musteriYanitBildir` (müşteriye). KayitDetay'da "müşteriye görünür"
+      anahtarı + müşteri/görünür rozetleri. Test 28/28; HTTP izolasyon (B→A 404), iç not sızmıyor.
 - [ ] **Kalan dağıtım:** SEMAK'a ilk kurulum + Cloudflare Tunnel (8795 yayın); ops: **otomatik yedek
       (SIRADA — Bilal 'veri çok kritik' dedi)**, Windows başlangıç servisi, (opsiyonel) tek `.exe`.
-- [ ] **Kararlaştırılan sonraki 4 (rakip ITSM analizi):** 1) E-posta ✅(Faz10) · 2) SLA/talep
-      zamanlaması · 3) müşteri talep durum takibi (tokenlı) · 4) dashboard + CSV/JSON export.
+- [ ] **Kararlaştırılan sonraki 4 (rakip ITSM analizi):** 1) E-posta ✅(Faz10) · 3) müşteri talep
+      durum takibi ✅(Faz12) · KALAN: 2) SLA/talep zamanlaması · 4) dashboard + CSV/JSON export.
 
 **Bilinen sınırlar:** müşteri "Müşteriler" yönetim ekranı henüz yok (CLI+API var); dışa aktarma yok;
 markdown/inline ekran görüntüsü render'ı yok (Faz 6 ile gelecek).
