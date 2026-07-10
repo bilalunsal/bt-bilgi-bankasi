@@ -10,6 +10,15 @@ import Giris from "./Giris.jsx";
 import ParolaDegistir from "./ParolaDegistir.jsx";
 import Kullanicilar from "./Kullanicilar.jsx";
 
+// Sol menu gruplari (FortiGate tarzi acilir-kapanir). tipler API'den gelir; burada gruplanir.
+const MENU_GRUPLARI = [
+  { baslik: "Genel", ikon: "📊", ozel: ["tumu", "uyarilar"] },
+  { baslik: "Envanter", ikon: "🗄️", tipler: ["donanim", "yazilim", "lisans", "ag"] },
+  { baslik: "Dokümantasyon", ikon: "📚", tipler: ["sistem", "surec", "revizyon", "bilgi"] },
+  { baslik: "Kişiler & Destek", ikon: "🤝", tipler: ["personel", "talep", "tedarikci", "sozlesme"] },
+  { baslik: "Yönetim", ikon: "⚙️", ozel: ["kullanicilar"], adminGerek: true },
+];
+
 export default function App() {
   const [tipler, setTipler] = useState([]);
   const [iliskiTurleri, setIliskiTurleri] = useState([]);
@@ -67,6 +76,34 @@ export default function App() {
   }, [q, aktifTip, aktifDurum, ben]);
 
   const tipSay = (kod) => ist?.tipBazli.find((x) => x.tip === kod)?.n || 0;
+
+  // Menu grubu acik/kapali durumu
+  const [acikGruplar, setAcikGruplar] = useState(() => new Set(MENU_GRUPLARI.map((g) => g.baslik)));
+  const toggleGrup = (b) => setAcikGruplar((s) => { const n = new Set(s); n.has(b) ? n.delete(b) : n.add(b); return n; });
+
+  // Ozel (tip olmayan) menu ogeleri
+  const ozelOge = {
+    tumu: { etiket: "Tümü", ikon: "▦", renk: PAL.mavi, say: ist?.toplam, aktif: gorunum === "liste" && !aktifTip,
+      onClick: () => { setAktifTip(""); setAktifDurum(""); setGorunum("liste"); } },
+    uyarilar: { etiket: "Uyarılar", ikon: "🔔", renk: PAL.gold, rozetRenk: PAL.gold, say: uyariSayi || null,
+      aktif: gorunum === "uyarilar", onClick: () => setGorunum("uyarilar") },
+    kullanicilar: { etiket: "Kullanıcılar", ikon: "👤", renk: PAL.mor, say: null,
+      aktif: gorunum === "kullanicilar", onClick: () => setGorunum("kullanicilar") },
+  };
+  const grupCocuklari = (grup) => {
+    const out = [];
+    for (const oz of grup.ozel || []) { const d = ozelOge[oz]; if (d) out.push({ key: oz, ...d }); }
+    for (const kod of grup.tipler || []) {
+      const t = tipler.find((x) => x.kod === kod); if (!t) continue;
+      out.push({ key: kod, etiket: t.etiket, ikon: t.ikon, renk: TIP_RENK[kod], say: tipSay(kod),
+        aktif: gorunum === "liste" && aktifTip === kod,
+        onClick: () => { setAktifTip(kod); setAktifDurum(""); setGorunum("liste"); } });
+    }
+    return out;
+  };
+  // Hicbir grupta olmayan tipler (ileride eklenirse) → "Diger"
+  const kapsanan = new Set(MENU_GRUPLARI.flatMap((g) => g.tipler || []));
+  const digerTipler = tipler.filter((t) => !kapsanan.has(t.kod)).map((t) => t.kod);
 
   function yeniAc(tipKod) { setFormTip(tipKod); setFormMevcut(null); setYeniMenu(false); setGorunum("form"); }
   function duzenleAc(kayit) { setFormTip(kayit.tip); setFormMevcut(kayit); setGorunum("form"); }
@@ -159,32 +196,23 @@ export default function App() {
 
       <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
         {/* KENAR */}
-        <aside style={{ width: 232, borderRight: `1px solid ${PAL.cizgi}`, padding: 14, background: PAL.bg2, flexShrink: 0 }}>
-          <KenarOge etiket="Tümü" ikon="▦" aktif={!aktifTip} say={ist?.toplam} onClick={() => { setAktifTip(""); setAktifDurum(""); setGorunum("liste"); }} />
-          <div style={{ height: 10 }} />
-          {tipler.map((t) => (
-            <KenarOge key={t.kod} etiket={t.etiket} ikon={t.ikon} renk={TIP_RENK[t.kod]}
-              aktif={aktifTip === t.kod} say={tipSay(t.kod)}
-              onClick={() => { setAktifTip(t.kod); setAktifDurum(""); setGorunum("liste"); }} />
-          ))}
-
-          <div style={{ height: 10 }} />
-          <div onClick={() => setGorunum("uyarilar")} style={{
-            display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 9, cursor: "pointer",
-            background: gorunum === "uyarilar" ? `${PAL.gold}1f` : "transparent",
-            border: `1px solid ${gorunum === "uyarilar" ? PAL.gold + "55" : "transparent"}`,
-          }}
-            onMouseEnter={(e) => { if (gorunum !== "uyarilar") e.currentTarget.style.background = PAL.surface; }}
-            onMouseLeave={(e) => { if (gorunum !== "uyarilar") e.currentTarget.style.background = "transparent"; }}>
-            <span style={{ width: 20, textAlign: "center" }}>🔔</span>
-            <span style={{ flex: 1, fontSize: 14, fontWeight: gorunum === "uyarilar" ? 700 : 500, color: gorunum === "uyarilar" ? PAL.metin : PAL.soluk }}>Uyarılar</span>
-            {uyariSayi > 0 && (
-              <span style={{ fontSize: 11, fontWeight: 800, color: "#3A2A08", background: PAL.gold, borderRadius: 999, padding: "1px 7px", minWidth: 18, textAlign: "center" }}>{uyariSayi}</span>
-            )}
-          </div>
+        <aside style={{ width: 236, borderRight: `1px solid ${PAL.cizgi}`, padding: "12px 12px", background: PAL.bg2, flexShrink: 0, overflowY: "auto" }}>
+          {MENU_GRUPLARI.map((grup) => {
+            if (grup.adminGerek && ben.rol !== "admin") return null;
+            const cocuklar = grupCocuklari(grup);
+            if (cocuklar.length === 0) return null;
+            return (
+              <MenuGrubu key={grup.baslik} grup={grup} cocuklar={cocuklar}
+                acik={acikGruplar.has(grup.baslik)} onToggle={() => toggleGrup(grup.baslik)} />
+            );
+          })}
+          {digerTipler.length > 0 && (
+            <MenuGrubu grup={{ baslik: "Diğer", ikon: "📦" }} acik={acikGruplar.has("Diğer")} onToggle={() => toggleGrup("Diğer")}
+              cocuklar={grupCocuklari({ tipler: digerTipler })} />
+          )}
 
           {aktifTipMeta && (
-            <div style={{ marginTop: 16 }}>
+            <div style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${PAL.cizgi}` }}>
               <div style={{ fontSize: 11, color: PAL.soluk2, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8, fontWeight: 700 }}>Durum</div>
               <DurumSuzgec durum="" etiket="Hepsi" aktif={!aktifDurum} onClick={() => setAktifDurum("")} />
               {aktifTipMeta.durumlar.map((d) => (
@@ -235,10 +263,32 @@ function MenuOge({ children, onClick }) {
   );
 }
 
-function KenarOge({ etiket, ikon, say, aktif, onClick, renk = PAL.mavi }) {
+function MenuGrubu({ grup, cocuklar, acik, onToggle }) {
+  return (
+    <div style={{ marginBottom: 6 }}>
+      <div onClick={onToggle} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", cursor: "pointer", userSelect: "none" }}
+        onMouseEnter={(e) => e.currentTarget.style.background = PAL.surface}
+        onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+        <span style={{ fontSize: 13, width: 16, textAlign: "center" }}>{grup.ikon}</span>
+        <span style={{ flex: 1, fontSize: 11, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase", color: PAL.soluk2 }}>{grup.baslik}</span>
+        <span style={{ fontSize: 10, color: PAL.soluk2 }}>{acik ? "▾" : "▸"}</span>
+      </div>
+      {acik && (
+        <div style={{ marginTop: 2 }}>
+          {cocuklar.map((c) => (
+            <KenarOge key={c.key} etiket={c.etiket} ikon={c.ikon} renk={c.renk} say={c.say}
+              rozetRenk={c.rozetRenk} girinti aktif={c.aktif} onClick={c.onClick} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function KenarOge({ etiket, ikon, say, aktif, onClick, renk = PAL.mavi, rozetRenk, girinti }) {
   return (
     <div onClick={onClick} style={{
-      display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 9, cursor: "pointer",
+      display: "flex", alignItems: "center", gap: 10, padding: "7px 10px", paddingLeft: girinti ? 16 : 10, borderRadius: 9, cursor: "pointer",
       background: aktif ? `${renk}1f` : "transparent",
       border: `1px solid ${aktif ? renk + "55" : "transparent"}`, marginBottom: 2,
     }}
@@ -246,7 +296,11 @@ function KenarOge({ etiket, ikon, say, aktif, onClick, renk = PAL.mavi }) {
       onMouseLeave={(e) => { if (!aktif) e.currentTarget.style.background = "transparent"; }}>
       <span style={{ width: 20, textAlign: "center" }}>{ikon}</span>
       <span style={{ flex: 1, fontSize: 14, fontWeight: aktif ? 700 : 500, color: aktif ? PAL.metin : PAL.soluk }}>{etiket}</span>
-      <span style={{ fontSize: 12, color: PAL.soluk2, fontVariantNumeric: "tabular-nums" }}>{say ?? ""}</span>
+      {rozetRenk && say ? (
+        <span style={{ fontSize: 11, fontWeight: 800, color: "#08121A", background: rozetRenk, borderRadius: 999, padding: "1px 7px", minWidth: 18, textAlign: "center" }}>{say}</span>
+      ) : (
+        <span style={{ fontSize: 12, color: PAL.soluk2, fontVariantNumeric: "tabular-nums" }}>{say ?? ""}</span>
+      )}
     </div>
   );
 }
