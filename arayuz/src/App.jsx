@@ -111,10 +111,18 @@ export default function App() {
             onFocus={() => setGorunum("liste")} />
         </div>
 
-        <div style={{ position: "relative" }}>
-          <Buton birincil onClick={() => setYeniMenu((s) => !s)}>+ Yeni Kayıt</Buton>
+        <div style={{ position: "relative", display: "flex" }}>
+          <Buton birincil onClick={() => (aktifTip ? yeniAc(aktifTip) : setYeniMenu((s) => !s))}
+            style={aktifTip ? { borderTopRightRadius: 0, borderBottomRightRadius: 0 } : undefined}>
+            + Yeni {aktifTipMeta ? aktifTipMeta.etiket : "Kayıt"}
+          </Buton>
+          {aktifTip && (
+            <Buton birincil title="Başka tip ekle" onClick={() => setYeniMenu((s) => !s)}
+              style={{ borderTopLeftRadius: 0, borderBottomLeftRadius: 0, borderLeft: "1px solid rgba(0,0,0,.25)", padding: "9px 10px" }}>▾</Buton>
+          )}
           {yeniMenu && (
-            <div style={{ position: "absolute", right: 0, top: 46, background: PAL.surface, border: `1px solid ${PAL.cizgi2}`, borderRadius: 12, padding: 6, minWidth: 190, zIndex: 30, boxShadow: "0 12px 40px rgba(0,0,0,.5)" }}>
+            <div style={{ position: "absolute", right: 0, top: 46, background: PAL.surface, border: `1px solid ${PAL.cizgi2}`, borderRadius: 12, padding: 6, minWidth: 200, zIndex: 30, boxShadow: "0 12px 40px rgba(0,0,0,.5)" }}>
+              <div style={{ fontSize: 11, color: PAL.soluk2, padding: "4px 11px 6px", textTransform: "uppercase", letterSpacing: 0.5 }}>Yeni kayıt tipi</div>
               {tipler.map((t) => (
                 <div key={t.kod} onClick={() => yeniAc(t.kod)} style={{ padding: "9px 11px", borderRadius: 8, cursor: "pointer", display: "flex", gap: 9, alignItems: "center", fontSize: 14 }}
                   onMouseEnter={(e) => e.currentTarget.style.background = PAL.surface2}
@@ -205,7 +213,8 @@ export default function App() {
           {gorunum === "liste" && (
             <Liste sonuclar={sonuclar} yukleniyor={yukleniyor} tipMeta={tipMeta} q={q}
               baslik={aktifTipMeta ? `${aktifTipMeta.ikon} ${aktifTipMeta.etiket}` : "Tüm kayıtlar"}
-              onDetay={detayAc} onYeni={() => setYeniMenu(true)} />
+              yeniEtiket={aktifTipMeta?.etiket}
+              onDetay={detayAc} onYeni={() => (aktifTip ? yeniAc(aktifTip) : setYeniMenu(true))} />
           )}
         </main>
       </div>
@@ -254,13 +263,15 @@ function DurumSuzgec({ durum, etiket, aktif, onClick }) {
   );
 }
 
-function Liste({ sonuclar, yukleniyor, tipMeta, q, baslik, onDetay, onYeni }) {
+function Liste({ sonuclar, yukleniyor, tipMeta, q, baslik, yeniEtiket, onDetay, onYeni }) {
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
         <h2 style={{ margin: 0, fontSize: 19, fontWeight: 800 }}>{baslik}</h2>
         <span style={{ color: PAL.soluk2, fontSize: 13 }}>{sonuclar.length} kayıt{q ? ` · "${q}"` : ""}</span>
         {yukleniyor && <span style={{ color: PAL.teal, fontSize: 12 }}>arıyor…</span>}
+        <div style={{ flex: 1 }} />
+        {yeniEtiket && <Buton birincil onClick={onYeni}>+ Yeni {yeniEtiket}</Buton>}
       </div>
 
       {!yukleniyor && sonuclar.length === 0 && (
@@ -270,7 +281,7 @@ function Liste({ sonuclar, yukleniyor, tipMeta, q, baslik, onDetay, onYeni }) {
           <div style={{ color: PAL.soluk2, fontSize: 13, margin: "6px 0 16px" }}>
             {q ? "Farklı bir kelime deneyin." : "İlk kaydı ekleyerek başlayın."}
           </div>
-          <Buton birincil onClick={onYeni}>+ Yeni Kayıt</Buton>
+          <Buton birincil onClick={onYeni}>+ Yeni {yeniEtiket || "Kayıt"}</Buton>
         </Panel>
       )}
 
