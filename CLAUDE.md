@@ -186,6 +186,15 @@ Ortam: `PORT` (varsayılan 8793), `BILGI_DB` (varsayılan `db/bilgi.sqlite`).
       `sunucu-baslat.bat`. **Güncelleme:** `guncelle.bat` (codeload zip indirir, kodu yeniler,
       **db/ + ekler/ KORUNUR**, npm install). Akış: değişiklik → commit → `git push` → müşteride
       `guncelle.bat`. Uçtan uca test edildi (CRLF, dist, veri koruması). SEMAK'ta Node 24 kurulu.
+- [x] **Faz 9 — Alan adı + SSL sertifikası takibi.** İki yeni tip: **🌍 Alan Adı** (kayıt yeri/
+      sağlayıcı=tedarik yeri · bitiş/yenileme · otomatik yenileme · nameserver · yetkili · yönetim
+      URL · yıllık ücret) ve **🔒 SSL Sertifikası** (sağlayıcı/CA · tür DV/OV/EV/Wildcard/SAN ·
+      başlangıç/bitiş · otomatik yenileme · kurulu sunucu · yıllık ücret). Her ikisinin `bitis` alanı
+      **uyarı motoruna** bağlandı (`UYARI_ALANLARI`) → 🔔 Uyarılar panosu + kenar çubuğu sayacı süresi
+      yaklaşan/geçen alan adı, SSL, (abonelik) lisans, garanti, sözleşmeleri **tek yerde** gösterir.
+      Sol menüde yeni grup "Alan Adı & SSL". Tipe özel form bölümleri + liste kolonları (modul.js).
+      Motor/DB şeması değişmedi — tamamen ekleme; `alanlariSenkronla` dolu DB'ye otomatik taşır.
+      Uyarilar.jsx zaten jenerik (tipMeta ikon + kategori). Testler 24/24. Commit+push edildi.
 - [ ] **Kalan dağıtım:** SEMAK'a ilk kurulum + Cloudflare Tunnel (8795 yayın); ops: otomatik yedek,
       Windows başlangıç servisi, (opsiyonel) tek `.exe`.
 
