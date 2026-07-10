@@ -2,7 +2,7 @@
 // Parola GET'te maskeli gelir (smtp_parola_var). Bos birakilirsa mevcut parola KORUNUR.
 import React, { useEffect, useState } from "react";
 import { PAL } from "./tema.js";
-import { api, dosyaOku } from "./api.js";
+import { api, dosyaOku, boyutFmt } from "./api.js";
 import { Panel, Eyebrow, Buton, girdiStil, Yukleniyor, MarkaLogo } from "./ui.jsx";
 
 // Office 365 varsayilanlari — ilk kurulumda alanlar dolu gelsin, admin yalniz parolayi girsin.
@@ -59,6 +59,22 @@ export default function Ayarlar() {
   }
   useEffect(() => { surumKontrolEt(); }, []);
 
+  const [yedek, setYedek] = useState(null);        // { klasor, varsayilanKlasor, aktif, tut, son, liste }
+  const [yedekYaziyor, setYedekYaziyor] = useState(false);
+  async function yedekYukle() { try { setYedek(await api.yedekListe()); } catch (e) { setHata(e.message); } }
+  useEffect(() => { yedekYukle(); }, []);
+  async function simdiYedekle() {
+    setHata(""); setBilgi(""); setYedekYaziyor(true);
+    try {
+      // Once klasor/tut ayarlarini kaydet (girilen degerlerle yedeklensin)
+      await api.ayarlariKaydet({ yedek_aktif: f.yedek_aktif, yedek_klasor: f.yedek_klasor, yedek_tut: f.yedek_tut });
+      const r = await api.yedekSimdi();
+      setBilgi(`Yedek alındı: ${r.ad} (${boyutFmt(r.boyut)})`);
+      yedekYukle();
+    } catch (e) { setHata(`Yedek başarısız: ${e.message}`); }
+    setYedekYaziyor(false);
+  }
+
   useEffect(() => {
     Promise.all([api.ayarlar(), api.marka()]).then(([a, m]) => {
       setParolaVar(!!a.smtp_parola_var);
@@ -73,6 +89,9 @@ export default function Ayarlar() {
         bildirim_hedef: a.bildirim_hedef || VARSAYILAN.bildirim_hedef,
         bildirim_aktif: a.bildirim_aktif ?? VARSAYILAN.bildirim_aktif,
         bildirim_yeni_talep: a.bildirim_yeni_talep ?? VARSAYILAN.bildirim_yeni_talep,
+        yedek_aktif: a.yedek_aktif ?? "0",
+        yedek_klasor: a.yedek_klasor ?? "",
+        yedek_tut: a.yedek_tut ?? "14",
         smtp_parola: "", // bos = degistirme
       });
     }).catch((e) => setHata(e.message));
@@ -204,6 +223,44 @@ export default function Ayarlar() {
         Microsoft 365 yönetim merkezinden ilgili posta kutusu için <i>Authenticated SMTP</i> açılmalı;
         MFA varsa <i>uygulama parolası</i> gerekebilir. Parola bu sunucudaki veritabanında (LAN) saklanır.
       </div>
+
+      <Panel style={{ padding: 18, marginTop: 14 }}>
+        <Eyebrow>Yedekleme</Eyebrow>
+        <div style={{ fontSize: 11.5, color: PAL.soluk2, margin: "4px 0 10px" }}>
+          Veriler tek bir SQLite dosyasında. Yedek <b>ikinci bir diske veya ağ paylaşımına</b> yazılmalı
+          (aynı diske yazmak disk arızasında işe yaramaz).
+        </div>
+        <Anahtar acik={f.yedek_aktif === "1"} onToggle={() => toggle("yedek_aktif")}
+          baslik="Otomatik günlük yedek" aciklama="Sunucu açıkken günde bir kez otomatik yedek alır (son N adet tutulur)." />
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12, marginTop: 8 }}>
+          <Etiket baslik="Yedek klasörü" ipucu="Örn: D:\SITMS-yedek veya \\SUNUCU\yedek. Boşsa: _yedekler (aynı disk).">
+            <input style={girdiStil} value={f.yedek_klasor} onChange={(e) => set("yedek_klasor", e.target.value)}
+              placeholder={yedek?.varsayilanKlasor || "D:\\SITMS-yedek"} />
+          </Etiket>
+          <Etiket baslik="Kaç adet saklansın" ipucu="Eski yedekler otomatik silinir.">
+            <input style={girdiStil} type="number" min="1" value={f.yedek_tut} onChange={(e) => set("yedek_tut", e.target.value)} />
+          </Etiket>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 6 }}>
+          <Buton birincil onClick={simdiYedekle} disabled={yedekYaziyor}>{yedekYaziyor ? "Yedekleniyor…" : "💾 Şimdi Yedekle"}</Buton>
+          <div style={{ fontSize: 12, color: PAL.soluk2 }}>
+            {yedek?.son ? `Son yedek: ${new Date(yedek.son).toLocaleString("tr-TR")}` : "Henüz yedek alınmadı."}
+            {yedek?.klasor && <span> · Klasör: {yedek.klasor}</span>}
+          </div>
+        </div>
+        {yedek?.liste?.length > 0 && (
+          <div style={{ marginTop: 12, borderTop: `1px solid ${PAL.cizgi}`, paddingTop: 8 }}>
+            {yedek.liste.slice(0, 8).map((y) => (
+              <div key={y.ad} style={{ display: "flex", alignItems: "center", gap: 10, padding: "5px 0", fontSize: 12.5 }}>
+                <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{y.ad}</span>
+                <span style={{ color: PAL.soluk2 }}>{boyutFmt(y.boyut)}</span>
+                <a href={api.yedekIndirUrl(y.ad)} style={{ color: PAL.teal, textDecoration: "none", fontWeight: 600 }}>indir</a>
+              </div>
+            ))}
+            {yedek.liste.length > 8 && <div style={{ fontSize: 11.5, color: PAL.soluk2, marginTop: 4 }}>…ve {yedek.liste.length - 8} tane daha</div>}
+          </div>
+        )}
+      </Panel>
 
       <Panel style={{ padding: 18, marginTop: 14 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>

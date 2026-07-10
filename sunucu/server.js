@@ -18,6 +18,7 @@ import {
   ayarGetir, ayarKur, ayarlariGetir, ayarlariKaydet,
 } from "./db.js";
 import { epostaTest } from "./eposta.js";
+import { yedekConfig, yedekAl, yedekListe, otomatikYedekDene, YEDEK_ADI_DESEN } from "./yedek.js";
 import { ILISKI_TURLERI, ZIMMETLENEBILIR } from "./tohum-alanlar.js";
 
 // Ayarlarda gizli/parola alanlari — istemciye ASLA duz gonderilmez (yalniz "var mi" bilgisi).
@@ -137,7 +138,8 @@ app.put("/api/ayarlar", sarmala((req, res) => {
   const yaz = {};
   const IZIN = ["smtp_host", "smtp_port", "smtp_kullanici", "smtp_gonderen",
     "bildirim_hedef", "bildirim_aktif", "bildirim_yeni_talep",
-    "marka_ad", "marka_tam"];
+    "marka_ad", "marka_tam",
+    "yedek_aktif", "yedek_klasor", "yedek_tut"];
   for (const k of IZIN) if (k in g) yaz[k] = g[k] == null ? "" : String(g[k]);
   // Parola: sadece dolu geldiyse guncelle (bos string → dokunma)
   if (typeof g.smtp_parola === "string" && g.smtp_parola.length > 0) yaz.smtp_parola = g.smtp_parola;
@@ -149,6 +151,30 @@ app.post("/api/ayarlar/eposta-test", sarmala(async (req, res) => {
   if (!adminGerek(req, res)) return;
   const sonuc = await epostaTest(db, (req.body || {}).kime);
   res.json(sonuc);
+}));
+
+// ── Yedekleme (yalnizca admin) ───────────────────────────────────────────────
+// Hedef ikinci disk / ag paylasimi olabilir. Varsayilan: <proje>/_yedekler (ayni disk).
+const YEDEK_VARSAYILAN = process.env.YEDEK_DIR ? resolve(process.env.YEDEK_DIR) : join(PROJE_KOK, "_yedekler");
+app.post("/api/yedek/simdi", sarmala((req, res) => {
+  if (!adminGerek(req, res)) return;
+  const c = yedekConfig(db, YEDEK_VARSAYILAN);
+  try { res.json({ ok: true, ...yedekAl(db, c.klasor, c.tut) }); }
+  catch (e) { res.status(500).json({ hata: e.message }); }
+}));
+app.get("/api/yedek/liste", sarmala((req, res) => {
+  if (!adminGerek(req, res)) return;
+  const c = yedekConfig(db, YEDEK_VARSAYILAN);
+  res.json({ klasor: c.klasor, varsayilanKlasor: c.varsayilanKlasor, aktif: c.aktif, tut: c.tut, son: c.son, liste: yedekListe(c.klasor) });
+}));
+app.get("/api/yedek/indir", sarmala((req, res) => {
+  if (!adminGerek(req, res)) return;
+  const ad = basename(String(req.query.ad || ""));
+  if (!YEDEK_ADI_DESEN.test(ad)) return res.status(400).json({ hata: "Geçersiz dosya adı" });
+  const c = yedekConfig(db, YEDEK_VARSAYILAN);
+  const yol = join(c.klasor, ad);
+  if (!existsSync(yol)) return res.status(404).json({ hata: "Bulunamadı" });
+  res.download(yol, ad);
 }));
 
 // ── Marka (white-label) ──────────────────────────────────────────────────────
@@ -368,3 +394,8 @@ if (existsSync(DIST)) {
 app.listen(PORT, () => {
   console.log(`SITMS API → http://localhost:${PORT}  (db: ${db ? "acik" : "?"})`);
 });
+
+// Otomatik yedek: yalnizca bu (ana) surecte. Acilistan 15sn sonra + saatte bir "bugun alindi mi" kontrolu.
+// intake.js yedek almaz (tek sorumlu surec). Kapali/klasorsuz ise sessizce atlar.
+setTimeout(() => otomatikYedekDene(db, YEDEK_VARSAYILAN), 15000);
+setInterval(() => otomatikYedekDene(db, YEDEK_VARSAYILAN), 60 * 60 * 1000);

@@ -62,6 +62,10 @@ export const api = {
   marka: () => iste("/api/marka"),
   markaLogoYukle: (veri, tur) => iste("/api/marka/logo", { method: "POST", body: JSON.stringify({ veri, tur }) }),
   markaLogoSil: () => iste("/api/marka/logo", { method: "DELETE" }),
+  // ── Yedekleme — admin ──
+  yedekListe: () => iste("/api/yedek/liste"),
+  yedekSimdi: () => iste("/api/yedek/simdi", { method: "POST" }),
+  yedekIndirUrl: (ad) => `/api/yedek/indir?ad=${encodeURIComponent(ad)}`,
 };
 
 // Dosyayi base64'e cevir (data URL onekini ayikla)

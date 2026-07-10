@@ -1,7 +1,7 @@
 // db.test.mjs — SQLite + FTS5 temelini dogrular (bellek-ici DB). Bilal kurali: para/veri hesabi -> once test.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, rmSync } from "node:fs";
+import { existsSync, rmSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
@@ -13,6 +13,7 @@ import {
   ayarGetir, ayarKur, ayarlariGetir, ayarlariKaydet,
 } from "../sunucu/db.js";
 import { epostaHazir, epostaGonder } from "../sunucu/eposta.js";
+import { yedekAl, yedekListe } from "../sunucu/yedek.js";
 
 function yeniDb() { return veritabaniAc(":memory:"); }
 
@@ -168,6 +169,30 @@ test("eposta: yapilandirilmamis iken gonderim SESSIZCE atlanir (ana akis kirilma
   const r = await epostaGonder(db, { kime: "x@y.com", konu: "test", metin: "gövde" });
   assert.equal(r.ok, false);
   assert.equal(r.atlandi, true, "yapilandirilmamis → atlandi, exception yok");
+});
+
+test("yedek: VACUUM INTO gecerli kopya uretir + budama son N tutar", () => {
+  const dir = join(tmpdir(), `sitms-yedek-test-${process.pid}`);
+  if (existsSync(dir)) rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  // 4 sahte ESKI yedek (2020 tarihli isimler → en eskiler)
+  for (const t of ["20200101-000001", "20200102-000001", "20200103-000001", "20200104-000001"]) {
+    writeFileSync(join(dir, `yedek-${t}.sqlite`), "eski");
+  }
+  const db = yeniDb();
+  kayitEkle(db, { tip: "donanim", baslik: "Yedek Testi Cihaz", veri: { seri_no: "YDK-1" } });
+  const r = yedekAl(db, dir, 3); // tut=3 → budama calisir
+  assert.ok(existsSync(r.yol), "yedek dosyasi olusmali");
+  assert.ok(r.boyut > 0, "yedek bos olmamali");
+  // kopya gecerli bir SQLite mi? ac ve veriyi dogrula
+  const kopya = veritabaniAc(r.yol);
+  assert.ok(kopya.prepare("SELECT COUNT(*) n FROM kayitlar").get().n >= 1, "kopyada kayit olmali");
+  // budama: en yeni 3 kalir (bugunku gercek + en yeni 2 sahte), 2 eski silinir
+  const liste = yedekListe(dir);
+  assert.equal(liste.length, 3, "sadece son 3 yedek kalmali");
+  assert.equal(liste[0].ad, r.ad, "en yeni (bugunku gercek yedek) basta olmali");
+  kopya.close(); db.close(); // dosya kilitlerini birak (yoksa rmSync EPERM)
+  rmSync(dir, { recursive: true, force: true });
 });
 
 test("musteri token: uretim, dogrulama, yenileme, pasiflestirme", () => {
