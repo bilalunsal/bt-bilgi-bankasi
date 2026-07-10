@@ -40,6 +40,7 @@ export default function App() {
   const [uyariSayi, setUyariSayi] = useState(0);
   const [ben, setBen] = useState(null);
   const [marka, setMarka] = useState({ ad: "SITMS", tam: "IT Management Systems", logo: null });
+  const [guncelVar, setGuncelVar] = useState(false);
   const [authYuklendi, setAuthYuklendi] = useState(false);
   const [parolaModal, setParolaModal] = useState(false);
   const [kullaniciMenu, setKullaniciMenu] = useState(false);
@@ -64,6 +65,8 @@ export default function App() {
     if (!ben) return;
     api.tipler().then((d) => { setTipler(d.tipler); setIliskiTurleri(d.iliskiTurleri); setZimmetlenebilir(d.zimmetlenebilir || []); });
     panoYenile();
+    // Guncelleme kontrolu (yalnizca admin) — bat calistirmadan "yeni surum var mi" gorsun
+    if (ben.rol === "admin") api.guncelleme().then((r) => setGuncelVar(!!r.guncellemeVar)).catch(() => {});
   }, [ben]);
 
   async function cikisYap() {
@@ -156,6 +159,14 @@ export default function App() {
             <div style={{ fontSize: 10.5, color: PAL.soluk2 }}>{marka.tam}</div>
           </div>
         </div>
+
+        {ben.rol === "admin" && guncelVar && (
+          <button onClick={() => setGorunum("ayarlar")} title="Güncelleme mevcut — Ayarlar'a git"
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 11px", borderRadius: 999,
+              border: `1px solid ${PAL.gold}`, background: "transparent", color: PAL.gold, fontWeight: 700, fontSize: 12.5, cursor: "pointer" }}>
+            ⬆ Güncelleme var
+          </button>
+        )}
 
         <div style={{ flex: 1, maxWidth: 640, position: "relative" }}>
           <span style={{ position: "absolute", left: 12, top: 10, color: PAL.soluk2 }}>🔍</span>

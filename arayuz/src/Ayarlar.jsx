@@ -49,6 +49,15 @@ export default function Ayarlar() {
   const [bilgi, setBilgi] = useState("");
   const [kaydediliyor, setKaydediliyor] = useState(false);
   const [testYaziyor, setTestYaziyor] = useState(false);
+  const [surum, setSurum] = useState(null);       // { yerel, uzak, guncellemeVar, hata }
+  const [surumKontrol, setSurumKontrol] = useState(false);
+
+  async function surumKontrolEt() {
+    setSurumKontrol(true);
+    try { setSurum(await api.guncelleme()); } catch (e) { setSurum({ hata: e.message }); }
+    setSurumKontrol(false);
+  }
+  useEffect(() => { surumKontrolEt(); }, []);
 
   useEffect(() => {
     Promise.all([api.ayarlar(), api.marka()]).then(([a, m]) => {
@@ -195,6 +204,33 @@ export default function Ayarlar() {
         Microsoft 365 yönetim merkezinden ilgili posta kutusu için <i>Authenticated SMTP</i> açılmalı;
         MFA varsa <i>uygulama parolası</i> gerekebilir. Parola bu sunucudaki veritabanında (LAN) saklanır.
       </div>
+
+      <Panel style={{ padding: 18, marginTop: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <Eyebrow>Sürüm & Güncelleme</Eyebrow>
+            <div style={{ fontSize: 13.5, marginTop: 6 }}>
+              Yüklü sürüm: <b>{surum?.yerel?.version || "…"}</b>
+              {surum?.yerel?.yapim != null && <span style={{ color: PAL.soluk2 }}> (yapım {surum.yerel.yapim})</span>}
+            </div>
+            <div style={{ fontSize: 12.5, marginTop: 4 }}>
+              {surumKontrol && <span style={{ color: PAL.soluk2 }}>GitHub kontrol ediliyor…</span>}
+              {!surumKontrol && surum?.hata && <span style={{ color: PAL.soluk2 }}>Kontrol edilemedi (çevrimdışı?): {surum.hata}</span>}
+              {!surumKontrol && surum && !surum.hata && (surum.guncellemeVar
+                ? <span style={{ color: PAL.gold, fontWeight: 700 }}>⬆ Güncelleme mevcut: {surum.uzak.version} (yapım {surum.uzak.yapim})</span>
+                : <span style={{ color: PAL.green, fontWeight: 700 }}>✓ En güncel sürümü kullanıyorsunuz</span>)}
+            </div>
+            {!surumKontrol && surum?.guncellemeVar && (
+              <div style={{ fontSize: 12, color: PAL.soluk, marginTop: 6, lineHeight: 1.6 }}>
+                {surum.uzak?.not && <div style={{ marginBottom: 4 }}>Yenilik: {surum.uzak.not}</div>}
+                Sunucuda <b>guncelle.bat</b> çalıştırıp ardından <b>sunucu-baslat.bat</b> ile yeniden başlatın.
+                (Veriler korunur.)
+              </div>
+            )}
+          </div>
+          <Buton onClick={surumKontrolEt} disabled={surumKontrol}>{surumKontrol ? "Kontrol…" : "Kontrol Et"}</Buton>
+        </div>
+      </Panel>
     </div>
   );
 }

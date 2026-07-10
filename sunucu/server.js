@@ -191,6 +191,23 @@ app.get("/api/version", sarmala((_req, res) => {
   const v = JSON.parse(readFileSync(join(PROJE_KOK, "version.json"), "utf8"));
   res.json(v);
 }));
+// Guncelleme kontrolu: yerel version.json ile GitHub'daki karsilastirilir (yapim no).
+// Sonuc guncelleme.bat calistirmadan "yeni surum var mi" gosterir. Cevrimdisi ise nazikce gecer.
+const GUNCELLEME_URL = process.env.GUNCELLEME_URL
+  || "https://raw.githubusercontent.com/bilalunsal/bt-bilgi-bankasi/main/version.json";
+app.get("/api/guncelleme", sarmala(async (req, res) => {
+  if (!adminGerek(req, res)) return;
+  const yerel = JSON.parse(readFileSync(join(PROJE_KOK, "version.json"), "utf8"));
+  try {
+    const r = await fetch(GUNCELLEME_URL, { signal: AbortSignal.timeout(8000), headers: { "Cache-Control": "no-cache" } });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const uzak = await r.json();
+    const guncellemeVar = Number(uzak.yapim || 0) > Number(yerel.yapim || 0);
+    res.json({ yerel, uzak, guncellemeVar });
+  } catch (e) {
+    res.json({ yerel, uzak: null, guncellemeVar: false, hata: e.message });
+  }
+}));
 app.get("/api/tipler", sarmala((_req, res) => {
   res.json({ tipler: TIPLER, iliskiTurleri: ILISKI_TURLERI, zimmetlenebilir: ZIMMETLENEBILIR });
 }));

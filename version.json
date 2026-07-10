@@ -1,6 +1,7 @@
 {
-  "version": "0.1.0",
+  "version": "1.0.0",
+  "yapim": 10,
   "ad": "SITMS",
-  "tamAd": "SITMS - Semak IT Management Systems",
-  "not": "Faz 8 — modül zenginleştirme: bölümlü formlar + tipe özel liste kolonları + SEMAK logo"
+  "tamAd": "IT Management Systems",
+  "not": "Faz 9 + e-posta bildirim (SMTP/O365) + white-label marka + surum takibi"
 }

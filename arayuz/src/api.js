@@ -19,6 +19,7 @@ async function iste(yol, secenek) {
 
 export const api = {
   version: () => iste("/api/version"),
+  guncelleme: () => iste("/api/guncelleme"),
   tipler: () => iste("/api/tipler"),
   alanlar: (tip) => iste(`/api/alanlar${tip ? `?tip=${tip}` : ""}`),
   istatistik: () => iste("/api/istatistik"),
