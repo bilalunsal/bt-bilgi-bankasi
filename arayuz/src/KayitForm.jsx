@@ -2,11 +2,12 @@
 import React, { useEffect, useState } from "react";
 import { PAL } from "./tema.js";
 import { api } from "./api.js";
-import { Panel, Eyebrow, Buton, AlanGirdi, girdiStil, Yukleniyor } from "./ui.jsx";
+import { Panel, Eyebrow, Buton, AlanGirdi, girdiStil, Yukleniyor, Rozet } from "./ui.jsx";
+import PersonelSec from "./PersonelSec.jsx";
 
 const ONCELIKLER = ["Düşük", "Orta", "Yüksek", "Kritik"];
 
-export default function KayitForm({ tip, tipMeta, mevcut, onKaydet, onIptal }) {
+export default function KayitForm({ tip, tipMeta, mevcut, zimmetlenebilir = [], onKaydet, onIptal }) {
   const meta = tipMeta[tip];
   const [alanlar, setAlanlar] = useState(null);
   const [f, setF] = useState(() => ({
@@ -20,6 +21,8 @@ export default function KayitForm({ tip, tipMeta, mevcut, onKaydet, onIptal }) {
   }));
   const [kaydediliyor, setKaydediliyor] = useState(false);
   const [hata, setHata] = useState("");
+  const [zimmetPersonel, setZimmetPersonel] = useState(null); // yeni kayitta ilk zimmet (opsiyonel)
+  const zimmetlenebilirTip = !mevcut && zimmetlenebilir.includes(tip);
 
   useEffect(() => { api.alanlar(tip).then(setAlanlar).catch((e) => setHata(e.message)); }, [tip]);
 
@@ -40,6 +43,9 @@ export default function KayitForm({ tip, tipMeta, mevcut, onKaydet, onIptal }) {
     };
     try {
       const sonuc = mevcut ? await api.guncelle(mevcut.id, yuk) : await api.ekle(yuk);
+      if (!mevcut && zimmetPersonel) {
+        try { await api.zimmetAta(sonuc.id, zimmetPersonel.id); } catch { /* zimmet hatasi kaydi engellemesin */ }
+      }
       onKaydet(sonuc);
     } catch (e) { setHata(e.message); setKaydediliyor(false); }
   }
@@ -102,6 +108,22 @@ export default function KayitForm({ tip, tipMeta, mevcut, onKaydet, onIptal }) {
             <input style={girdiStil} value={f.etiketler} onChange={(e) => setF((s) => ({ ...s, etiketler: e.target.value }))} placeholder="muhasebe, garanti-devam" />
           </Etiketli>
         </div>
+
+        {zimmetlenebilirTip && (
+          <Etiketli baslik="Zimmetli Personel (opsiyonel)">
+            {zimmetPersonel ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Rozet renk={PAL.mavi}>🧑‍💼 {zimmetPersonel.baslik}</Rozet>
+                <button type="button" onClick={() => setZimmetPersonel(null)} style={{ background: "none", border: "none", color: PAL.soluk2, cursor: "pointer", fontSize: 13 }}>değiştir/kaldır</button>
+              </div>
+            ) : (
+              <>
+                <PersonelSec onSec={setZimmetPersonel} placeholder="Personel ara (boş bırakılabilir)…" />
+                <div style={{ fontSize: 11.5, color: PAL.soluk2, marginTop: 4 }}>Kimseye verilmeyecekse boş bırakın (ör. switch, AP).</div>
+              </>
+            )}
+          </Etiketli>
+        )}
       </Panel>
 
       <Panel style={{ padding: 20 }}>

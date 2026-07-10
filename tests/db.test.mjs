@@ -9,6 +9,7 @@ import {
   uyarilar, musteriEkle, musteriBulToken, musteriTokenYenile, musteriDurum, talepEkle,
   kullaniciBulKadi, kullaniciEkle, parolaDogru, parolaDegistir, kullaniciDurum,
   girisDene, oturumKullanici, oturumKapat,
+  zimmetAta, zimmetIade, zimmetAktif, zimmetGecmisi, personelZimmetleri,
 } from "../sunucu/db.js";
 
 function yeniDb() { return veritabaniAc(":memory:"); }
@@ -203,6 +204,51 @@ test("auth: kullanici ekleme, parola degistirme, pasiflestirme", () => {
   assert.ok(girisDene(db, "ayse", "yeniSifre1"), "yeni parola gecerli");
   kullaniciDurum(db, id, false);
   assert.equal(girisDene(db, "ayse", "yeniSifre1"), null, "pasif kullanici giremez");
+});
+
+test("zimmet: ata → yeniden ata (change mgmt) → iade, tarihce + ters sorgu", () => {
+  const db = yeniDb();
+  const ayse = kayitEkle(db, { tip: "personel", baslik: "Ayse Yilmaz", veri: { departman: "Muhasebe" } });
+  const mehmet = kayitEkle(db, { tip: "personel", baslik: "Mehmet Kaya" });
+  const pc1 = kayitEkle(db, { tip: "donanim", baslik: "Dell Latitude 5540", veri: { seri_no: "PC1" } });
+  const lisans = kayitEkle(db, { tip: "lisans", baslik: "Office 365 E3" });
+  const sw = kayitEkle(db, { tip: "donanim", baslik: "Cisco Switch", veri: { kategori: "Ag Cihazi" } });
+
+  // 1) PC1 -> Ayse
+  zimmetAta(db, { kayitId: pc1, personelId: ayse, atayan: "admin" });
+  assert.equal(zimmetAktif(db, pc1)?.personel_ad, "Ayse Yilmaz");
+  assert.equal(kayitGetir(db, pc1).atanan, "Ayse Yilmaz", "atanan alani senkron");
+  assert.equal(personelZimmetleri(db, ayse).aktif.length, 1, "Ayse'de 1 aktif varlik");
+
+  // 2) PC1 -> Mehmet (yeniden zimmet: change management)
+  zimmetAta(db, { kayitId: pc1, personelId: mehmet, atayan: "admin" });
+  assert.equal(zimmetAktif(db, pc1)?.personel_ad, "Mehmet Kaya");
+  assert.equal(personelZimmetleri(db, ayse).aktif.length, 0, "Ayse artik PC1 tutmuyor");
+  assert.equal(personelZimmetleri(db, ayse).gecmis.length, 1, "Ayse gecmisinde PC1");
+  assert.equal(personelZimmetleri(db, mehmet).aktif.length, 1, "Mehmet'te PC1 aktif");
+  assert.equal(zimmetGecmisi(db, pc1).length, 2, "PC1 icin 2 zimmet donemi (tam tarihce)");
+
+  // 3) Ayse'ye lisans da zimmetle → birden fazla varlik ters sorguda
+  zimmetAta(db, { kayitId: lisans, personelId: ayse, atayan: "admin" });
+  assert.equal(personelZimmetleri(db, ayse).aktif.length, 1);
+  assert.equal(personelZimmetleri(db, ayse).aktif[0].varlik_tip, "lisans");
+
+  // 4) iade → zimmetsiz kalir, tarihce durur
+  assert.ok(zimmetIade(db, { kayitId: pc1, atayan: "admin" }));
+  assert.equal(zimmetAktif(db, pc1), null, "iade sonrasi aktif zimmet yok");
+  assert.equal(kayitGetir(db, pc1).atanan, null, "atanan temizlendi");
+  assert.equal(zimmetGecmisi(db, pc1).length, 2, "tarihce korunuyor");
+  assert.equal(personelZimmetleri(db, mehmet).aktif.length, 0);
+
+  // 5) zorunlu degil: switch kimseye zimmetli degil
+  assert.equal(zimmetAktif(db, sw), null, "switch zimmetsiz olabilir");
+});
+
+test("zimmet: personel olmayana atanamaz", () => {
+  const db = yeniDb();
+  const pc = kayitEkle(db, { tip: "donanim", baslik: "PC" });
+  const baskaPc = kayitEkle(db, { tip: "donanim", baslik: "Baska PC" });
+  assert.throws(() => zimmetAta(db, { kayitId: pc, personelId: baskaPc }), /personel karti olmali/);
 });
 
 test("aramaIfadesi: ozel karakterler temizlenir (sozdizim guvenli)", () => {

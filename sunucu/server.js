@@ -14,8 +14,9 @@ import {
   musteriListe, musteriEkle, musteriTokenYenile, musteriDurum,
   girisDene, oturumKullanici, oturumKapat, kullaniciBulKadi,
   kullaniciListe, kullaniciEkle, kullaniciDurum, kullaniciRol, parolaDegistir, parolaDogru,
+  zimmetAta, zimmetIade, zimmetAktif, zimmetGecmisi, personelZimmetleri,
 } from "./db.js";
-import { ILISKI_TURLERI } from "./tohum-alanlar.js";
+import { ILISKI_TURLERI, ZIMMETLENEBILIR } from "./tohum-alanlar.js";
 
 const META_URL = (typeof __dirname !== "undefined") ? pathToFileURL(__dirname + "/").href : import.meta.url;
 const BU_KLASOR = dirname(fileURLToPath(META_URL));
@@ -116,7 +117,7 @@ app.get("/api/version", sarmala((_req, res) => {
   res.json(v);
 }));
 app.get("/api/tipler", sarmala((_req, res) => {
-  res.json({ tipler: TIPLER, iliskiTurleri: ILISKI_TURLERI });
+  res.json({ tipler: TIPLER, iliskiTurleri: ILISKI_TURLERI, zimmetlenebilir: ZIMMETLENEBILIR });
 }));
 app.get("/api/alanlar", sarmala((req, res) => {
   res.json(alanTanimlari(db, req.query.tip || null));
@@ -139,13 +140,20 @@ app.get("/api/ara", sarmala((req, res) => {
 app.get("/api/kayit/:id", sarmala((req, res) => {
   const k = kayitGetir(db, Number(req.params.id));
   if (!k) return res.status(404).json({ hata: "Kayit bulunamadi" });
-  res.json({
+  const cikti = {
     ...k,
     yorumlar: yorumlar(db, k.id),
     iliskiler: iliskilerGetir(db, k.id),
     ekler: ekler(db, k.id),
     gecmis: gecmisGetir(db, k.id),
-  });
+  };
+  if (ZIMMETLENEBILIR.includes(k.tip)) {
+    cikti.zimmet = { aktif: zimmetAktif(db, k.id), gecmis: zimmetGecmisi(db, k.id) };
+  }
+  if (k.tip === "personel") {
+    cikti.personelZimmet = personelZimmetleri(db, k.id); // ters sorgu
+  }
+  res.json(cikti);
 }));
 app.post("/api/kayit", sarmala((req, res) => {
   const g = req.body || {};
@@ -177,6 +185,22 @@ app.post("/api/kayit/:id/iliski", sarmala((req, res) => {
 }));
 app.delete("/api/iliski/:id", sarmala((req, res) => {
   res.json({ silindi: iliskiSil(db, Number(req.params.id)) });
+}));
+
+// ── Zimmet (change management) ────────────────────────────────────────────────
+app.post("/api/kayit/:id/zimmet", sarmala((req, res) => {
+  const { personel_id, not: not_ } = req.body || {};
+  if (!personel_id) return res.status(400).json({ hata: "personel_id zorunlu" });
+  const atayan = req.kullanici?.ad || req.kullanici?.kadi || null;
+  try {
+    zimmetAta(db, { kayitId: Number(req.params.id), personelId: Number(personel_id), atayan, not_: not_ || null });
+    res.json({ zimmet: { aktif: zimmetAktif(db, Number(req.params.id)), gecmis: zimmetGecmisi(db, Number(req.params.id)) } });
+  } catch (e) { res.status(400).json({ hata: e.message }); }
+}));
+app.post("/api/kayit/:id/iade", sarmala((req, res) => {
+  const atayan = req.kullanici?.ad || req.kullanici?.kadi || null;
+  const ok = zimmetIade(db, { kayitId: Number(req.params.id), atayan, not_: (req.body || {}).not || null });
+  res.json({ iade: ok, zimmet: { aktif: null, gecmis: zimmetGecmisi(db, Number(req.params.id)) } });
 }));
 
 // ── Ekler (dosya: base64 govde → disk) ────────────────────────────────────────

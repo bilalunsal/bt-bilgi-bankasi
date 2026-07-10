@@ -13,6 +13,7 @@ import Kullanicilar from "./Kullanicilar.jsx";
 export default function App() {
   const [tipler, setTipler] = useState([]);
   const [iliskiTurleri, setIliskiTurleri] = useState([]);
+  const [zimmetlenebilir, setZimmetlenebilir] = useState([]);
   const [ist, setIst] = useState(null);
   const [q, setQ] = useState("");
   const [aktifTip, setAktifTip] = useState("");
@@ -41,7 +42,7 @@ export default function App() {
   // Uygulama verisi — yalnizca giris yapildiktan sonra
   useEffect(() => {
     if (!ben) return;
-    api.tipler().then((d) => { setTipler(d.tipler); setIliskiTurleri(d.iliskiTurleri); });
+    api.tipler().then((d) => { setTipler(d.tipler); setIliskiTurleri(d.iliskiTurleri); setZimmetlenebilir(d.zimmetlenebilir || []); });
     panoYenile();
   }, [ben]);
 
@@ -196,7 +197,7 @@ export default function App() {
         {/* ANA */}
         <main style={{ flex: 1, padding: 22, overflow: "auto", minWidth: 0 }}>
           {gorunum === "form" && (
-            <KayitForm tip={formTip} tipMeta={tipMeta} mevcut={formMevcut}
+            <KayitForm tip={formTip} tipMeta={tipMeta} mevcut={formMevcut} zimmetlenebilir={zimmetlenebilir}
               onKaydet={(k) => { if (!formMevcut) { setSeciliId(k.id); } formBitti(); if (!formMevcut) detayAc(k.id); }}
               onIptal={formBitti} />
           )}

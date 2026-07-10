@@ -62,7 +62,16 @@ export const TIPLER = [
     durumlar: ["Talep", "Gelistiriliyor", "Test", "Yayinda", "Iptal"],
     varsayilanDurum: "Talep",
   },
+  {
+    // Personel karti — zimmet ters sorgusunun merkezi.
+    kod: "personel", etiket: "Personel", ikon: "🧑‍💼",
+    durumlar: ["Aktif", "Izinli", "Ayrildi"],
+    varsayilanDurum: "Aktif",
+  },
 ];
+
+// Zimmet (change management) UYGULANABILEN kayit tipleri — bunlar bir personele verilebilir.
+export const ZIMMETLENEBILIR = ["donanim", "yazilim", "lisans"];
 
 // Tipe ozel alanlar. (Ortak alanlar — baslik, durum, oncelik, atanan, konum, etiket — cekirdek kolonlarda.)
 export const ALANLAR = [
@@ -171,6 +180,15 @@ export const ALANLAR = [
   { tip: "revizyon", kod: "aciklama", etiket: "Aciklama (ne degisti)", veri_tipi: "uzunmetin", sira: 50 },
   { tip: "revizyon", kod: "surum_no", etiket: "Surum No", veri_tipi: "metin", sira: 60 },
   { tip: "revizyon", kod: "yayin_tarihi", etiket: "Yayin Tarihi", veri_tipi: "tarih", sira: 70 },
+
+  // ── PERSONEL ────────────────────────────────────────────
+  { tip: "personel", kod: "sicil_no", etiket: "Sicil No", veri_tipi: "metin", sira: 10 },
+  { tip: "personel", kod: "departman", etiket: "Departman", veri_tipi: "metin", sira: 20 },
+  { tip: "personel", kod: "unvan", etiket: "Unvan", veri_tipi: "metin", sira: 30 },
+  { tip: "personel", kod: "email", etiket: "E-posta", veri_tipi: "eposta", sira: 40 },
+  { tip: "personel", kod: "telefon", etiket: "Telefon", veri_tipi: "metin", sira: 50 },
+  { tip: "personel", kod: "ise_giris", etiket: "Ise Giris", veri_tipi: "tarih", sira: 60 },
+  { tip: "personel", kod: "notlar", etiket: "Notlar", veri_tipi: "uzunmetin", sira: 70 },
 ];
 
 // Kayitlar arasi iliski turleri (Jira "issue link" karsiligi).

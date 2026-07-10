@@ -122,6 +122,22 @@ function semaKur(db) {
     );
     CREATE INDEX IF NOT EXISTS ix_gecmis_kayit ON gecmis(kayit_id);
 
+    -- ZIMMET DEFTERI (change management). Her satir bir zimmet donemi: hangi varlik, hangi
+    -- personel, ne zaman verildi (baslangic) / iade edildi (bitis=NULL ise AKTIF). Yeniden
+    -- zimmetlemede eski satir kapatilir, yeni satir acilir → tam tarihce korunur.
+    CREATE TABLE IF NOT EXISTS zimmetler (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      kayit_id    INTEGER NOT NULL REFERENCES kayitlar(id) ON DELETE CASCADE,  -- varlik (cihaz/lisans)
+      personel_id INTEGER NOT NULL REFERENCES kayitlar(id) ON DELETE CASCADE,  -- personel karti
+      baslangic   TEXT NOT NULL,
+      bitis       TEXT,             -- NULL = aktif zimmet
+      atayan      TEXT,
+      not_        TEXT,
+      olusturma   TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS ix_zimmet_kayit    ON zimmetler(kayit_id);
+    CREATE INDEX IF NOT EXISTS ix_zimmet_personel ON zimmetler(personel_id);
+
     -- PERSONEL KULLANICILARI (giris). Parola scrypt ile hash'li (salt:hash). Duz parola YOK.
     CREATE TABLE IF NOT EXISTS kullanicilar (
       id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -437,6 +453,64 @@ function gunFarki(bugunISO, hedefISO) {
   const b = Date.parse(String(hedefISO).slice(0, 10) + "T00:00:00Z");
   if (Number.isNaN(a) || Number.isNaN(b)) return null;
   return Math.round((b - a) / 86400000);
+}
+
+// ── ZIMMET (change management) ───────────────────────────────────────────────
+// Bir varligin AKTIF zimmeti (personel adiyla birlikte) veya null.
+export function zimmetAktif(db, kayitId) {
+  return db.prepare(`
+    SELECT z.*, p.baslik AS personel_ad
+    FROM zimmetler z JOIN kayitlar p ON p.id = z.personel_id
+    WHERE z.kayit_id = ? AND z.bitis IS NULL
+    ORDER BY z.id DESC LIMIT 1`).get(kayitId) || null;
+}
+// Varligi bir personele zimmetle. Aktif zimmet varsa once kapatir (change management).
+export function zimmetAta(db, { kayitId, personelId, atayan = null, not_ = null }) {
+  const varlik = db.prepare("SELECT id, baslik FROM kayitlar WHERE id = ?").get(kayitId);
+  const personel = db.prepare("SELECT id, baslik, tip FROM kayitlar WHERE id = ?").get(personelId);
+  if (!varlik || !personel) throw new Error("Varlik veya personel bulunamadi");
+  if (personel.tip !== "personel") throw new Error("Hedef bir personel karti olmali");
+  const t = simdi();
+  db.prepare("UPDATE zimmetler SET bitis = ? WHERE kayit_id = ? AND bitis IS NULL").run(t, kayitId);
+  db.prepare("INSERT INTO zimmetler (kayit_id, personel_id, baslangic, atayan, not_, olusturma) VALUES (?, ?, ?, ?, ?, ?)")
+    .run(kayitId, personelId, t, atayan, not_, t);
+  // liste/aramada gorunsun diye atanan alanini personel adina esitle
+  db.prepare("UPDATE kayitlar SET atanan = ?, guncelleme = ? WHERE id = ?").run(personel.baslik, t, kayitId);
+  db.prepare("INSERT INTO gecmis (kayit_id, kullanici, eylem, alan, yeni, zaman) VALUES (?, ?, 'zimmet', 'personel', ?, ?)")
+    .run(kayitId, atayan, personel.baslik, t);
+  ftsYaz(db, kayitId);
+  return zimmetAktif(db, kayitId);
+}
+// Aktif zimmeti kapat (iade). Varlik artik zimmetsiz.
+export function zimmetIade(db, { kayitId, atayan = null, not_ = null }) {
+  const aktif = zimmetAktif(db, kayitId);
+  if (!aktif) return false;
+  const t = simdi();
+  db.prepare("UPDATE zimmetler SET bitis = ?, not_ = COALESCE(?, not_) WHERE id = ?").run(t, not_, aktif.id);
+  db.prepare("UPDATE kayitlar SET atanan = NULL, guncelleme = ? WHERE id = ?").run(t, kayitId);
+  db.prepare("INSERT INTO gecmis (kayit_id, kullanici, eylem, alan, eski, zaman) VALUES (?, ?, 'iade', 'personel', ?, ?)")
+    .run(kayitId, atayan, aktif.personel_ad, t);
+  ftsYaz(db, kayitId);
+  return true;
+}
+// Bir varligin tum zimmet gecmisi (personel adiyla).
+export function zimmetGecmisi(db, kayitId) {
+  return db.prepare(`
+    SELECT z.*, p.baslik AS personel_ad, p.id AS personel_id
+    FROM zimmetler z JOIN kayitlar p ON p.id = z.personel_id
+    WHERE z.kayit_id = ? ORDER BY z.baslangic DESC, z.id DESC`).all(kayitId);
+}
+// TERS SORGU: bir personelin zimmetli (aktif + gecmis) tum varliklari.
+export function personelZimmetleri(db, personelId) {
+  const satirlar = db.prepare(`
+    SELECT z.id, z.baslangic, z.bitis, z.atayan,
+           v.id AS varlik_id, v.baslik AS varlik_ad, v.tip AS varlik_tip, v.durum AS varlik_durum
+    FROM zimmetler z JOIN kayitlar v ON v.id = z.kayit_id
+    WHERE z.personel_id = ? ORDER BY z.bitis IS NULL DESC, z.baslangic DESC`).all(personelId);
+  return {
+    aktif: satirlar.filter(s => s.bitis == null),
+    gecmis: satirlar.filter(s => s.bitis != null),
+  };
 }
 
 // ── GECMIS (audit) ──────────────────────────────────────────────────────────

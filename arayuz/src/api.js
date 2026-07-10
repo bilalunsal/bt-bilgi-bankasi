@@ -40,6 +40,8 @@ export const api = {
   ekEkle: (id, e) => iste(`/api/kayit/${id}/ek`, { method: "POST", body: JSON.stringify(e) }),
   ekSil: (ekId) => iste(`/api/ek/${ekId}`, { method: "DELETE" }),
   ekUrl: (ekId) => `/api/ek/${ekId}`,
+  zimmetAta: (id, personel_id, not) => iste(`/api/kayit/${id}/zimmet`, { method: "POST", body: JSON.stringify({ personel_id, not }) }),
+  zimmetIade: (id, not) => iste(`/api/kayit/${id}/iade`, { method: "POST", body: JSON.stringify({ not }) }),
   uyarilar: (gun = 45) => iste(`/api/uyarilar?gun=${gun}`),
   // ── Kimlik ──
   ben: () => iste("/api/ben"),

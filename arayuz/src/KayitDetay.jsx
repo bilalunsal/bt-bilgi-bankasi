@@ -1,8 +1,9 @@
 // KayitDetay.jsx — tek kaydin tam gorunumu: alanlar + yorumlar + iliskiler + gecmis.
 import React, { useEffect, useState } from "react";
-import { PAL, TIP_RENK, tarihFmt } from "./tema.js";
+import { PAL, TIP_RENK, tarihFmt, gunFmt } from "./tema.js";
 import { api, dosyaOku, boyutFmt } from "./api.js";
 import { md } from "./md.js";
+import PersonelSec from "./PersonelSec.jsx";
 import { Panel, Eyebrow, Rozet, DurumRozet, TipRozet, Etiket, Buton, girdiStil, Yukleniyor } from "./ui.jsx";
 
 export default function KayitDetay({ id, tipMeta, iliskiTurleri, onDuzenle, onGeri, onGit }) {
@@ -66,8 +67,9 @@ export default function KayitDetay({ id, tipMeta, iliskiTurleri, onDuzenle, onGe
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: 16, alignItems: "start" }}>
-        {/* SOL: alanlar + yorumlar */}
+        {/* SOL: (personel) zimmetli varliklar + alanlar + yorumlar */}
         <div>
+          {k.personelZimmet && <div style={{ marginBottom: 16 }}><PersonelVarliklar veri={k.personelZimmet} tipMeta={tipMeta} onGit={onGit} /></div>}
           <Panel style={{ padding: 18, marginBottom: 16 }}>
             <Eyebrow>Detaylar</Eyebrow>
             {veriGirdileri.length === 0 && <div style={{ color: PAL.soluk2, fontSize: 13 }}>Doldurulmuş alan yok.</div>}
@@ -106,8 +108,9 @@ export default function KayitDetay({ id, tipMeta, iliskiTurleri, onDuzenle, onGe
           </Panel>
         </div>
 
-        {/* SAG: iliskiler + gecmis */}
+        {/* SAG: zimmet + iliskiler + ekler + gecmis */}
         <div>
+          {k.zimmet && <div style={{ marginBottom: 16 }}><ZimmetPanel k={k} onGit={onGit} onDegisti={yukle} /></div>}
           <IliskiPanel k={k} tipMeta={tipMeta} iliskiTurleri={iliskiTurleri} onGit={onGit} onDegisti={yukle} />
           <div style={{ marginTop: 16 }}>
             <EkPanel k={k} onDegisti={yukle} />
@@ -127,6 +130,79 @@ export default function KayitDetay({ id, tipMeta, iliskiTurleri, onDuzenle, onGe
         </div>
       </div>
     </div>
+  );
+}
+
+function ZimmetPanel({ k, onGit, onDegisti }) {
+  const [sec, setSec] = useState(false);
+  const aktif = k.zimmet?.aktif;
+  const gecmis = k.zimmet?.gecmis || [];
+
+  async function ata(p) { await api.zimmetAta(k.id, p.id); setSec(false); onDegisti(); }
+  async function iade() { if (!confirm(`${aktif.personel_ad} zimmeti iade edilsin mi? (Cihaz zimmetsiz kalır)`)) return; await api.zimmetIade(k.id); onDegisti(); }
+
+  return (
+    <Panel style={{ padding: 18 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <Eyebrow>Zimmet</Eyebrow>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button onClick={() => setSec((s) => !s)} style={{ background: "none", border: "none", color: PAL.teal, cursor: "pointer", fontSize: 13, fontWeight: 700 }}>
+            {sec ? "kapat" : (aktif ? "değiştir" : "+ zimmetle")}
+          </button>
+          {aktif && <button onClick={iade} style={{ background: "none", border: "none", color: PAL.rose, cursor: "pointer", fontSize: 13, fontWeight: 700 }}>iade</button>}
+        </div>
+      </div>
+
+      {aktif ? (
+        <div onClick={() => onGit(aktif.personel_id)} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", marginTop: 4 }}>
+          <span style={{ fontSize: 18 }}>🧑‍💼</span>
+          <div>
+            <div style={{ fontSize: 14.5, fontWeight: 700 }}>{aktif.personel_ad}</div>
+            <div style={{ fontSize: 11.5, color: PAL.soluk2 }}>{gunFmt(aktif.baslangic)} tarihinden beri zimmetli</div>
+          </div>
+        </div>
+      ) : (!sec && <div style={{ color: PAL.soluk2, fontSize: 13 }}>Zimmetsiz — kimseye verilmemiş.</div>)}
+
+      {sec && <div style={{ marginTop: 10 }}><PersonelSec onSec={ata} placeholder={aktif ? "Yeni personel ara…" : "Personel ara…"} /></div>}
+
+      {gecmis.length > 0 && (
+        <div style={{ marginTop: 12 }}>
+          <div style={{ fontSize: 11, color: PAL.soluk2, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Zimmet geçmişi</div>
+          {gecmis.map((z) => (
+            <div key={z.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 0", borderTop: `1px solid ${PAL.cizgi}`, fontSize: 12.5 }}>
+              <span onClick={() => onGit(z.personel_id)} style={{ flex: 1, cursor: "pointer", color: z.bitis ? PAL.soluk : PAL.metin }}>🧑‍💼 {z.personel_ad}</span>
+              <span style={{ color: PAL.soluk2 }}>{gunFmt(z.baslangic)} – {z.bitis ? gunFmt(z.bitis) : "şu an"}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+function PersonelVarliklar({ veri, tipMeta, onGit }) {
+  const aktif = veri.aktif || [], gecmis = veri.gecmis || [];
+  const Satir = (z, gecmisMi) => (
+    <div key={z.id} onClick={() => onGit(z.varlik_id)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderTop: `1px solid ${PAL.cizgi}`, cursor: "pointer" }}>
+      <span style={{ fontSize: 16 }}>{tipMeta[z.varlik_tip]?.ikon}</span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: gecmisMi ? PAL.soluk : PAL.metin }}>{z.varlik_ad}</div>
+        <div style={{ fontSize: 11.5, color: PAL.soluk2 }}>{tipMeta[z.varlik_tip]?.etiket} · {gunFmt(z.baslangic)}{gecmisMi ? ` – ${gunFmt(z.bitis)}` : " → devam"}</div>
+      </div>
+    </div>
+  );
+  return (
+    <Panel style={{ padding: 18 }}>
+      <Eyebrow>Zimmetli Varlıklar · {aktif.length} aktif</Eyebrow>
+      {aktif.length === 0 && <div style={{ color: PAL.soluk2, fontSize: 13 }}>Bu personele zimmetli aktif varlık yok.</div>}
+      {aktif.map((z) => Satir(z, false))}
+      {gecmis.length > 0 && (
+        <div style={{ marginTop: 10 }}>
+          <div style={{ fontSize: 11, color: PAL.soluk2, textTransform: "uppercase", letterSpacing: 0.5 }}>Geçmiş zimmetler</div>
+          {gecmis.map((z) => Satir(z, true))}
+        </div>
+      )}
+    </Panel>
   );
 }
 

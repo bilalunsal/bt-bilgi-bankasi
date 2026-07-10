@@ -165,6 +165,14 @@ Ortam: `PORT` (varsayılan 8793), `BILGI_DB` (varsayılan `db/bilgi.sqlite`).
       içeriğe yapıştırılır, detayda **inline** görünür. Testler 21/21 (db 16 + md 5).
     - [ ] Sonraki incelik: form içi ilişki-seç (sistem alanı şimdilik metin; İlişkiler panelinden
           gerçek bağ kurulabiliyor), içeriğe **yapıştır-yükle** (görsel panoyu doğrudan gömme).
+- [x] **Faz 7 — Personel kartı + Zimmet (change management).** Yeni tip **🧑‍💼 Personel** (departman/
+      sicil/ünvan/…). `zimmetler` defteri: her satır bir zimmet dönemi (kayit_id=varlık, personel_id,
+      baslangic/bitis, atayan). `zimmetAta` yeniden zimmetlemede eskisini kapatıp yenisini açar → **tam
+      tarihçe**; `atanan` kolonu senkron (liste/arama). **Ters sorgu** `personelZimmetleri` → personel
+      kartında "Zimmetli Varlıklar" (aktif+geçmiş). Zimmet OPSİYONEL (switch/AP zimmetsiz). Zimmetlenebilir
+      tipler: `ZIMMETLENEBILIR=[donanim,yazilim,lisans]`. UI: cihaz detayında Zimmet paneli (zimmetle/
+      değiştir/iade + geçmiş), formda opsiyonel personel seçici (PersonelSec), personel kartında ters liste.
+      Uçlar: POST `/api/kayit/:id/zimmet|iade`. Testler 23/23, HTTP doğrulandı.
 - [x] **Dağıtım / güncelleme (GitHub oto-güncelleme).** Repo: **github.com/bilalunsal/bt-bilgi-bankasi**
       (public). `arayuz/dist` BİLİNÇLİ commit'lenir (müşteride derleme gerekmesin). `.gitattributes` →
       `.bat` depoda CRLF (indirilen zip Windows'ta çalışır). **İlk kurulum:** repo ZIP indir → aç →
