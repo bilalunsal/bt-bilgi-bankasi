@@ -73,6 +73,25 @@ export const TIPLER = [
 // Zimmet (change management) UYGULANABILEN kayit tipleri — bunlar bir personele verilebilir.
 export const ZIMMETLENEBILIR = ["donanim", "yazilim", "lisans"];
 
+// Form gorunum meta'si: baslik alaninin etiketi/ornegi + hangi cekirdek alanlar gosterilsin.
+// (Oncelik/Konum her tipe uymuyor — personel kartinda "oncelik" saçma. Tipe gore acilir.)
+const TIP_FORM = {
+  donanim:   { baslikEtiket: "Tanım",            baslikOrnek: "Örn: Dell Latitude 5540 — Muhasebe", oncelik: false, konum: true },
+  yazilim:   { baslikEtiket: "Yazılım Adı",       baslikOrnek: "Örn: AutoCAD 2024",                  oncelik: false, konum: false },
+  lisans:    { baslikEtiket: "Lisans / Ürün",     baslikOrnek: "Örn: Microsoft 365 Business",        oncelik: false, konum: false },
+  bilgi:     { baslikEtiket: "Başlık",            baslikOrnek: "Örn: VPN bağlantı sorunu çözümü",    oncelik: false, konum: false },
+  sozlesme:  { baslikEtiket: "Sözleşme Başlığı",  baslikOrnek: "Örn: Yıllık bakım sözleşmesi",       oncelik: false, konum: false },
+  tedarikci: { baslikEtiket: "Firma / Kısa Ad",   baslikOrnek: "Örn: ABC Bilişim",                   oncelik: false, konum: false },
+  ag:        { baslikEtiket: "Ad / Tanım",        baslikOrnek: "Örn: Muhasebe VLAN",                 oncelik: false, konum: true },
+  talep:     { baslikEtiket: "Konu",              baslikOrnek: "Örn: Yazıcı bağlanmıyor",            oncelik: true,  konum: false },
+  sistem:    { baslikEtiket: "Sistem Adı",        baslikOrnek: "Örn: SEMAK B2B",                     oncelik: false, konum: false },
+  surec:     { baslikEtiket: "Doküman Başlığı",   baslikOrnek: "Örn: Patlak Resim Süreci — Teknik",  oncelik: false, konum: false },
+  revizyon:  { baslikEtiket: "Revizyon Başlığı",  baslikOrnek: "Örn: v2.3 — sipariş ekranı düzeltmesi", oncelik: true, konum: false },
+  personel:  { baslikEtiket: "Ad Soyad",          baslikOrnek: "Örn: Ayşe Yılmaz",                   oncelik: false, konum: false },
+};
+// Her TIPLER ogesine form meta'sini ekle (arayuz tipMeta[kod].form olarak okur).
+for (const t of TIPLER) t.form = TIP_FORM[t.kod] || { baslikEtiket: "Başlık", baslikOrnek: "", oncelik: false, konum: true };
+
 // Tipe ozel alanlar. (Ortak alanlar — baslik, durum, oncelik, atanan, konum, etiket — cekirdek kolonlarda.)
 export const ALANLAR = [
   // ── DONANIM ─────────────────────────────────────────────
