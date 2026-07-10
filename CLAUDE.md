@@ -165,6 +165,13 @@ Ortam: `PORT` (varsayılan 8793), `BILGI_DB` (varsayılan `db/bilgi.sqlite`).
       içeriğe yapıştırılır, detayda **inline** görünür. Testler 21/21 (db 16 + md 5).
     - [ ] Sonraki incelik: form içi ilişki-seç (sistem alanı şimdilik metin; İlişkiler panelinden
           gerçek bağ kurulabiliyor), içeriğe **yapıştır-yükle** (görsel panoyu doğrudan gömme).
+- [x] **Faz 8 — Modül zenginleştirme (Yol A: motor aynı, sunum tipe özel).** Kullanıcı geri bildirimi
+      "tek form her yere kopyalanmış" → düzeltildi. `arayuz/src/modul.js`: **BOLUMLER** (form alanları
+      tipe göre bölümlere ayrılır — Donanım: Temel/Teknik/Satın Alma & Garanti…) + **LISTE_KOLON**
+      (her tip listede kendi anahtar kolonlarını gösterir). Başlık etiketi/örneği tipe göre; Öncelik/
+      Konum koşullu. **SEMAK logosu** header + giriş (gömülü). Motor/DB değişmedi — birleşik arama/
+      ilişki/geçmiş/zimmet korundu. Karar: Yol B (ayrı tablolar) REDDEDİLDİ (birleşik aramayı kaybederdi).
+      Sıradaki incelik: detay kartını da bölümlü göster; tipe özel workflow/durum renkleri.
 - [x] **Faz 7 — Personel kartı + Zimmet (change management).** Yeni tip **🧑‍💼 Personel** (departman/
       sicil/ünvan/…). `zimmetler` defteri: her satır bir zimmet dönemi (kayit_id=varlık, personel_id,
       baslangic/bitis, atayan). `zimmetAta` yeniden zimmetlemede eskisini kapatıp yenisini açar → **tam

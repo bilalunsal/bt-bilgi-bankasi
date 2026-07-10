@@ -10,6 +10,7 @@ import Giris from "./Giris.jsx";
 import ParolaDegistir from "./ParolaDegistir.jsx";
 import Kullanicilar from "./Kullanicilar.jsx";
 import logo from "./assets/logo-semak.jpg";
+import { LISTE_KOLON } from "./modul.js";
 
 // Sol menu gruplari (FortiGate tarzi acilir-kapanir). tipler API'den gelir; burada gruplanir.
 const MENU_GRUPLARI = [
@@ -352,7 +353,18 @@ function Liste({ sonuclar, yukleniyor, tipMeta, q, baslik, yeniEtiket, onDetay, 
 
 function Satir({ k, tipMeta, onClick }) {
   const renk = TIP_RENK[k.tip] || PAL.mavi;
-  const onemli = Object.entries(k.veri || {}).filter(([, v]) => v !== "" && v != null).slice(0, 3);
+  // Tipe ozel kolonlar (yoksa ilk birkac veri alani)
+  const sablon = LISTE_KOLON[k.tip];
+  let kolonlar;
+  if (sablon) {
+    kolonlar = sablon.map((c) => {
+      const v = c.f ? c.f(k) : k.veri?.[c.v];
+      return (v || v === 0) ? { et: c.et, v: String(v) } : null;
+    }).filter(Boolean);
+  } else {
+    kolonlar = Object.entries(k.veri || {}).filter(([kod, v]) => v !== "" && v != null && kod !== "musteri_id" && kod !== "kaynak")
+      .slice(0, 3).map(([, v]) => ({ v: String(v) }));
+  }
   return (
     <div onClick={onClick} style={{
       display: "flex", alignItems: "center", gap: 14, padding: "12px 15px", borderRadius: 12, cursor: "pointer",
@@ -364,9 +376,8 @@ function Satir({ k, tipMeta, onClick }) {
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 15, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{k.baslik}</div>
         <div style={{ display: "flex", gap: 12, marginTop: 3, fontSize: 12.5, color: PAL.soluk2, flexWrap: "wrap" }}>
-          {onemli.map(([kod, v]) => <span key={kod}>{String(v)}</span>)}
-          {k.atanan && <span>👤 {k.atanan}</span>}
-          {(k.etiketler || []).slice(0, 3).map((e) => <span key={e} style={{ color: PAL.soluk }}>#{e}</span>)}
+          {kolonlar.map((c, i) => <span key={i}>{c.et ? <span style={{ color: PAL.soluk2 }}>{c.et} </span> : null}<span style={{ color: PAL.soluk }}>{c.v}</span></span>)}
+          {(k.etiketler || []).slice(0, 3).map((e) => <span key={e} style={{ color: PAL.soluk2 }}>#{e}</span>)}
         </div>
       </div>
       <DurumRozet durum={k.durum} />

@@ -4,6 +4,7 @@ import { PAL } from "./tema.js";
 import { api } from "./api.js";
 import { Panel, Eyebrow, Buton, AlanGirdi, girdiStil, Yukleniyor, Rozet } from "./ui.jsx";
 import PersonelSec from "./PersonelSec.jsx";
+import { formBolumleri } from "./modul.js";
 
 const ONCELIKLER = ["Düşük", "Orta", "Yüksek", "Kritik"];
 
@@ -126,18 +127,20 @@ export default function KayitForm({ tip, tipMeta, mevcut, zimmetlenebilir = [], 
         )}
       </Panel>
 
-      <Panel style={{ padding: 20 }}>
-        <Eyebrow>{meta?.etiket} detayları</Eyebrow>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginTop: 6 }}>
-          {alanlar.map((a) => (
-            <div key={a.kod} style={{ gridColumn: (a.veri_tipi === "uzunmetin") ? "1 / -1" : "auto" }}>
-              <Etiketli baslik={a.etiket + (a.iliski_tip ? "  ↔" : "")} zorunlu={a.zorunlu}>
-                <AlanGirdi tanim={a} deger={f.veri[a.kod]} onChange={(v) => setVeri(a.kod, v)} />
-              </Etiketli>
-            </div>
-          ))}
-        </div>
-      </Panel>
+      {formBolumleri(tip, alanlar, meta?.etiket).map((bolum) => (
+        <Panel key={bolum.baslik} style={{ padding: 20, marginBottom: 16 }}>
+          <Eyebrow>{bolum.baslik}</Eyebrow>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginTop: 6 }}>
+            {bolum.alanlar.map((a) => (
+              <div key={a.kod} style={{ gridColumn: (a.veri_tipi === "uzunmetin") ? "1 / -1" : "auto" }}>
+                <Etiketli baslik={a.etiket + (a.iliski_tip ? "  ↔" : "")} zorunlu={a.zorunlu}>
+                  <AlanGirdi tanim={a} deger={f.veri[a.kod]} onChange={(v) => setVeri(a.kod, v)} />
+                </Etiketli>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      ))}
     </div>
   );
 }
