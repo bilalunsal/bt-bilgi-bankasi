@@ -58,6 +58,7 @@ export const api = {
   ayarlar: () => iste("/api/ayarlar"),
   ayarlariKaydet: (a) => iste("/api/ayarlar", { method: "PUT", body: JSON.stringify(a) }),
   epostaTest: (kime) => iste("/api/ayarlar/eposta-test", { method: "POST", body: JSON.stringify({ kime }) }),
+  postaKontrol: () => iste("/api/posta/kontrol", { method: "POST" }),
   // ── Marka (white-label) — GET public; logo yaz/sil admin ──
   marka: () => iste("/api/marka"),
   markaLogoYukle: (veri, tur) => iste("/api/marka/logo", { method: "POST", body: JSON.stringify({ veri, tur }) }),

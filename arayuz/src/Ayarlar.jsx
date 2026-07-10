@@ -51,6 +51,21 @@ export default function Ayarlar() {
   const [testYaziyor, setTestYaziyor] = useState(false);
   const [surum, setSurum] = useState(null);       // { yerel, uzak, guncellemeVar, hata }
   const [surumKontrol, setSurumKontrol] = useState(false);
+  const [imapParolaVar, setImapParolaVar] = useState(false);
+  const [postaYaziyor, setPostaYaziyor] = useState(false);
+
+  async function postaSimdi() {
+    setHata(""); setBilgi(""); setPostaYaziyor(true);
+    try {
+      await api.ayarlariKaydet({ imap_aktif: f.imap_aktif, imap_host: f.imap_host, imap_port: f.imap_port, imap_kullanici: f.imap_kullanici, imap_klasor: f.imap_klasor, ...(f.imap_parola ? { imap_parola: f.imap_parola } : {}) });
+      if (f.imap_parola) { setImapParolaVar(true); setF((s) => ({ ...s, imap_parola: "" })); }
+      const r = await api.postaKontrol();
+      if (r.ok) setBilgi(`Posta kutusu kontrol edildi: ${r.sayi} yeni talep (atlanan: ${r.atlanan || 0}).`);
+      else if (r.atlandi) setHata(`Atlandı: ${r.neden}`);
+      else setHata(`Başarısız: ${r.hata || "bilinmeyen"}`);
+    } catch (e) { setHata(e.message); }
+    setPostaYaziyor(false);
+  }
 
   async function surumKontrolEt() {
     setSurumKontrol(true);
@@ -78,6 +93,7 @@ export default function Ayarlar() {
   useEffect(() => {
     Promise.all([api.ayarlar(), api.marka()]).then(([a, m]) => {
       setParolaVar(!!a.smtp_parola_var);
+      setImapParolaVar(!!a.imap_parola_var);
       setMarka(m);
       setF({
         marka_ad: a.marka_ad || m.ad || "",
@@ -91,6 +107,12 @@ export default function Ayarlar() {
         bildirim_yeni_talep: a.bildirim_yeni_talep ?? VARSAYILAN.bildirim_yeni_talep,
         bildirim_musteri_durum: a.bildirim_musteri_durum ?? "1",
         bildirim_dis_kaynak: a.bildirim_dis_kaynak ?? "1",
+        imap_aktif: a.imap_aktif ?? "0",
+        imap_host: a.imap_host || "outlook.office365.com",
+        imap_port: a.imap_port || "993",
+        imap_kullanici: a.imap_kullanici || "",
+        imap_klasor: a.imap_klasor || "INBOX",
+        imap_parola: "",
         yedek_aktif: a.yedek_aktif ?? "0",
         yedek_klasor: a.yedek_klasor ?? "",
         yedek_tut: a.yedek_tut ?? "14",
@@ -224,6 +246,33 @@ export default function Ayarlar() {
         <Etiket baslik="Gönderen (From) adresi" ipucu="Genelde kullanıcı adıyla aynı. Office 365 farklı From'a genelde izin vermez.">
           <input style={girdiStil} value={f.smtp_gonderen} onChange={(e) => set("smtp_gonderen", e.target.value)} placeholder="admin@semak.com.tr" />
         </Etiket>
+      </Panel>
+
+      <Panel style={{ padding: 18, marginTop: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ flex: 1 }}><Eyebrow>E-posta → Ticket (gelen kutusu)</Eyebrow></div>
+          <Buton onClick={postaSimdi} disabled={postaYaziyor}>{postaYaziyor ? "Kontrol…" : "📥 Şimdi Kontrol Et"}</Buton>
+        </div>
+        <div style={{ fontSize: 11.5, color: PAL.soluk2, margin: "4px 0 10px" }}>
+          Bir posta kutusuna (örn. <b>teknik@semak.com.tr</b>) gelen mailler otomatik <b>talep</b> olur.
+          Kutu IMAP ile yoklanır; okunan mailler "okundu" işaretlenir.
+        </div>
+        <Anahtar acik={f.imap_aktif === "1"} onToggle={() => toggle("imap_aktif")}
+          baslik="E-posta → ticket açık" aciklama="Açıkken kutu düzenli yoklanır (birkaç dakikada bir)." />
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12, marginTop: 8 }}>
+          <Etiket baslik="IMAP sunucu"><input style={girdiStil} value={f.imap_host} onChange={(e) => set("imap_host", e.target.value)} /></Etiket>
+          <Etiket baslik="Port" ipucu="993 = SSL"><input style={girdiStil} value={f.imap_port} onChange={(e) => set("imap_port", e.target.value)} /></Etiket>
+        </div>
+        <Etiket baslik="Posta kutusu (e-posta)"><input style={girdiStil} value={f.imap_kullanici} onChange={(e) => set("imap_kullanici", e.target.value)} placeholder="teknik@semak.com.tr" /></Etiket>
+        <Etiket baslik="Parola" ipucu={imapParolaVar ? "Parola tanımlı. Değiştirmek istemiyorsanız boş bırakın." : "Office 365'te MFA varsa uygulama parolası gerekir."}>
+          <input style={girdiStil} type="password" value={f.imap_parola} onChange={(e) => set("imap_parola", e.target.value)}
+            placeholder={imapParolaVar ? "•••••••• (değiştirmek için yazın)" : "Parola girin"} autoComplete="new-password" />
+        </Etiket>
+        <Etiket baslik="Klasör" ipucu="Genelde INBOX."><input style={girdiStil} value={f.imap_klasor} onChange={(e) => set("imap_klasor", e.target.value)} /></Etiket>
+        <div style={{ fontSize: 11.5, color: PAL.soluk2, marginTop: 6, lineHeight: 1.6 }}>
+          <b>Not:</b> O365'te IMAP kapalıysa açtırılmalı; MFA varsa <b>uygulama parolası</b> gerekir.
+          Kendi adresimizden / otomatik-yanıt mailleri talep açmaz (döngü koruması).
+        </div>
       </Panel>
 
       <div style={{ fontSize: 11.5, color: PAL.soluk2, marginTop: 14, lineHeight: 1.6 }}>

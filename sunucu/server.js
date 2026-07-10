@@ -18,11 +18,12 @@ import {
   ayarGetir, ayarKur, ayarlariGetir, ayarlariKaydet, musteriGetir,
 } from "./db.js";
 import { epostaTest, musteriDurumBildir, musteriYanitBildir, disKaynakBildir, yeniTalepBildir } from "./eposta.js";
+import { postaKontrol, postaKontrolDene } from "./posta-gelen.js";
 import { yedekConfig, yedekAl, yedekListe, otomatikYedekDene, YEDEK_ADI_DESEN } from "./yedek.js";
 import { ILISKI_TURLERI, ZIMMETLENEBILIR } from "./tohum-alanlar.js";
 
 // Ayarlarda gizli/parola alanlari — istemciye ASLA duz gonderilmez (yalniz "var mi" bilgisi).
-const GIZLI_AYAR = new Set(["smtp_parola"]);
+const GIZLI_AYAR = new Set(["smtp_parola", "imap_parola"]);
 
 const META_URL = (typeof __dirname !== "undefined") ? pathToFileURL(__dirname + "/").href : import.meta.url;
 const BU_KLASOR = dirname(fileURLToPath(META_URL));
@@ -130,6 +131,7 @@ app.get("/api/ayarlar", sarmala((req, res) => {
   // marka_logo buyuk bir data URI → ayar echo'suna koyma; arayuz onu /api/marka'dan alir.
   for (const [k, v] of Object.entries(ham)) { if (!GIZLI_AYAR.has(k) && k !== "marka_logo") cikti[k] = v; }
   cikti.smtp_parola_var = !!ham.smtp_parola; // parola tanimli mi (deger gonderilmez)
+  cikti.imap_parola_var = !!ham.imap_parola;
   res.json(cikti);
 }));
 // PUT: gonderilen anahtarlari yazar. Parola BOS gelirse mevcut deger KORUNUR (ezilmez).
@@ -140,10 +142,12 @@ app.put("/api/ayarlar", sarmala((req, res) => {
   const IZIN = ["smtp_host", "smtp_port", "smtp_kullanici", "smtp_gonderen",
     "bildirim_hedef", "bildirim_aktif", "bildirim_yeni_talep", "bildirim_musteri_durum", "bildirim_dis_kaynak",
     "marka_ad", "marka_tam",
-    "yedek_aktif", "yedek_klasor", "yedek_tut"];
+    "yedek_aktif", "yedek_klasor", "yedek_tut",
+    "imap_aktif", "imap_host", "imap_port", "imap_kullanici", "imap_klasor"];
   for (const k of IZIN) if (k in g) yaz[k] = g[k] == null ? "" : String(g[k]);
-  // Parola: sadece dolu geldiyse guncelle (bos string → dokunma)
+  // Parolalar: sadece dolu geldiyse guncelle (bos string → mevcut korunur)
   if (typeof g.smtp_parola === "string" && g.smtp_parola.length > 0) yaz.smtp_parola = g.smtp_parola;
+  if (typeof g.imap_parola === "string" && g.imap_parola.length > 0) yaz.imap_parola = g.imap_parola;
   ayarlariKaydet(db, yaz);
   res.json({ ok: true });
 }));
@@ -152,6 +156,11 @@ app.post("/api/ayarlar/eposta-test", sarmala(async (req, res) => {
   if (!adminGerek(req, res)) return;
   const sonuc = await epostaTest(db, (req.body || {}).kime);
   res.json(sonuc);
+}));
+// E-posta → ticket: kutuyu SIMDI yokla (manuel). Ayni islevi zamanlayici da periyodik yapar.
+app.post("/api/posta/kontrol", sarmala(async (req, res) => {
+  if (!adminGerek(req, res)) return;
+  res.json(await postaKontrol(db));
 }));
 
 // ── Yedekleme (yalnizca admin) ───────────────────────────────────────────────
@@ -516,3 +525,8 @@ app.listen(PORT, () => {
 // intake.js yedek almaz (tek sorumlu surec). Kapali/klasorsuz ise sessizce atlar.
 setTimeout(() => otomatikYedekDene(db, YEDEK_VARSAYILAN), 15000);
 setInterval(() => otomatikYedekDene(db, YEDEK_VARSAYILAN), 60 * 60 * 1000);
+
+// E-posta → ticket: yalnizca ana surecte. Kapali/yapilandirilmamis ise no-op. Acilis+20sn / 3dk'da bir.
+const POSTA_ARALIK = Number(process.env.POSTA_ARALIK_DK) || 3;
+setTimeout(() => postaKontrolDene(db), 20000);
+setInterval(() => postaKontrolDene(db), POSTA_ARALIK * 60 * 1000);
