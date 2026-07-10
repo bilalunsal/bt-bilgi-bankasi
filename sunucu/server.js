@@ -17,7 +17,7 @@ import {
   zimmetAta, zimmetIade, zimmetAktif, zimmetGecmisi, personelZimmetleri,
   ayarGetir, ayarKur, ayarlariGetir, ayarlariKaydet, musteriGetir,
 } from "./db.js";
-import { epostaTest, musteriDurumBildir, musteriYanitBildir, disKaynakBildir } from "./eposta.js";
+import { epostaTest, musteriDurumBildir, musteriYanitBildir, disKaynakBildir, yeniTalepBildir } from "./eposta.js";
 import { yedekConfig, yedekAl, yedekListe, otomatikYedekDene, YEDEK_ADI_DESEN } from "./yedek.js";
 import { ILISKI_TURLERI, ZIMMETLENEBILIR } from "./tohum-alanlar.js";
 
@@ -37,6 +37,7 @@ const db = veritabaniAc();
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: "30mb" })); // base64 ekler icin (25MB ham → ~34MB base64)
+app.use(express.urlencoded({ extended: false, limit: "64kb" })); // ic talep portali (form POST)
 app.use((_req, res, next) => { res.set("Cache-Control", "no-store"); next(); });
 
 const sarmala = (fn) => (req, res) => {
@@ -417,6 +418,77 @@ app.post("/api/musteriler/:id/token-yenile", sarmala((req, res) => {
 app.post("/api/musteriler/:id/durum", sarmala((req, res) => {
   res.json({ ok: musteriDurum(db, Number(req.params.id), !!(req.body || {}).aktif) });
 }));
+
+// ── IC TALEP PORTALI (/ic) — LAN'de login'siz, calisanlar talep acar ─────────
+// 8793 zaten LAN'de (disari acilmaz). Yine de hiz siniri + honeypot. Katalog/kayit OKUNMAZ,
+// yalnizca talep YAZILIR. Personel uygulamasinda otomatik gorunur.
+const icEsc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const icIzlem = new Map();
+function icHizAsildi(ip, limit = 15) {
+  const t = Date.now(), pencere = 15 * 60 * 1000;
+  const d = (icIzlem.get(ip) || []).filter((x) => t - x < pencere); d.push(t); icIzlem.set(ip, d);
+  if (icIzlem.size > 3000) icIzlem.delete(icIzlem.keys().next().value);
+  return d.length > limit;
+}
+function icSayfa(govde) {
+  const m = markaOku();
+  return `<!doctype html><html lang="tr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>${icEsc(m.ad)} · İç Talep</title><style>
+*{box-sizing:border-box} body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+background:#0F1420;color:#E7ECF3;display:flex;justify-content:center;padding:24px}
+.kart{width:100%;max-width:560px;background:#151C2C;border:1px solid #26314B;border-radius:16px;padding:28px;margin-top:20px}
+h1{font-size:20px;margin:0 0 4px} .alt{color:#9AA7BD;font-size:13px;margin-bottom:18px}
+label{display:block;font-size:13px;color:#9AA7BD;font-weight:600;margin:14px 0 5px}
+input,textarea,select{width:100%;padding:11px 12px;border-radius:10px;background:#0B0F18;border:1px solid #324061;color:#E7ECF3;font-size:14px;font-family:inherit;outline:none}
+textarea{resize:vertical;min-height:96px} .hp{position:absolute;left:-9999px} .zorunlu{color:#F4707F}
+.btn{margin-top:22px;width:100%;padding:13px;border:none;border-radius:11px;background:#36C9B5;color:#06231F;font-size:15px;font-weight:800;cursor:pointer}
+.ok{text-align:center} .ok .im{font-size:46px;margin-bottom:8px} .marka{font-size:12px;color:#6B7896;text-align:center;margin-top:18px}
+</style></head><body><div class="kart">${govde}<div class="marka">${icEsc(m.tam)} · İç Talep</div></div></body></html>`;
+}
+app.get("/ic", (_req, res) => {
+  res.send(icSayfa(`
+    <h1>IT Destek Talebi</h1>
+    <div class="alt">Bir arıza veya talebinizi iletin. IT ekibi en kısa sürede ilgilenecek.</div>
+    <form method="post" action="/ic">
+      <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off">
+      <label>Ad Soyad <span class="zorunlu">*</span></label>
+      <input name="ad" maxlength="120" required placeholder="Adınız">
+      <label>İletişim (dahili / e-posta)</label>
+      <input name="iletisim" maxlength="200" placeholder="Size nasıl ulaşalım?">
+      <label>Konu <span class="zorunlu">*</span></label>
+      <input name="konu" maxlength="200" required placeholder="Kısa özet">
+      <label>Kategori</label>
+      <select name="kategori"><option>Arıza</option><option>Talep</option><option>Kurulum</option><option>Soru</option><option>Diğer</option></select>
+      <label>Bu talebi kim çözmeli?</label>
+      <select name="hedef_tur"><option value="İç IT Ekibi">İç IT Ekibi</option><option value="Dış Kaynak">Dış Kaynak (bilmiyorum / harici)</option></select>
+      <label>Açıklama <span class="zorunlu">*</span></label>
+      <textarea name="aciklama" maxlength="5000" required placeholder="Sorunu / talebi detaylandırın"></textarea>
+      <button class="btn" type="submit">Talebi Gönder</button>
+    </form>`));
+});
+app.post("/ic", (req, res) => {
+  const ip = req.ip || "?";
+  if (icHizAsildi(ip)) return res.status(429).send(icSayfa(`<h1>Biraz bekleyin</h1><div class="alt">Kısa sürede çok fazla talep. Birkaç dakika sonra tekrar deneyin.</div>`));
+  const b = req.body || {};
+  if (b.website) return res.send(icSayfa(`<div class="ok"><div class="im">✅</div><h1>Teşekkürler</h1></div>`)); // honeypot
+  const konu = String(b.konu || "").trim();
+  const ad = String(b.ad || "").trim();
+  const aciklama = String(b.aciklama || "").trim();
+  if (!konu || !aciklama || !ad) return res.status(400).send(icSayfa(`<h1>Eksik alan</h1><div class="alt">Ad, konu ve açıklama zorunludur. <a style="color:#36C9B5" href="/ic">Geri dön</a></div>`));
+  const hedef = String(b.hedef_tur || "").slice(0, 40) === "Dış Kaynak" ? "Dış Kaynak" : "İç IT Ekibi";
+  const id = kayitEkle(db, {
+    tip: "talep", baslik: konu.slice(0, 200), durum: "Yeni", olusturan: `ic:${ad}`,
+    veri: {
+      musteri: ad, iletisim: String(b.iletisim || "").slice(0, 200) || null,
+      kategori: String(b.kategori || "").slice(0, 40) || null,
+      aciklama: aciklama.slice(0, 5000), hedef_tur: hedef, kaynak: "ic-portal",
+    },
+  });
+  yeniTalepBildir(db, { id, baslik: konu, musteri: ad, kategori: b.kategori, iletisim: b.iletisim, aciklama })
+    .catch((e) => console.error("[ic-talep bildirimi]", e.message));
+  res.send(icSayfa(`<div class="ok"><div class="im">✅</div><h1>Talebiniz alındı</h1>
+    <div class="alt">IT ekibi en kısa sürede ilgilenecek. Bu pencereyi kapatabilirsiniz.</div></div>`));
+});
 
 // ── Statik arayuz (arayuz/dist varsa) ────────────────────────────────────────
 // Tarayici ONBELLEK TUTMASIN: express.static/sendFile kendi ETag/Cache-Control'unu koyar,
