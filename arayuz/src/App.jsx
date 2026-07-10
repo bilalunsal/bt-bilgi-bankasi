@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { PAL, TIP_RENK, durumRenk, gunFmt } from "./tema.js";
 import { api } from "./api.js";
-import { Panel, Rozet, DurumRozet, TipRozet, Etiket, Buton, Yukleniyor, girdiStil } from "./ui.jsx";
+import { Panel, Rozet, DurumRozet, TipRozet, Etiket, Buton, Yukleniyor, girdiStil, MarkaLogo } from "./ui.jsx";
 import KayitForm from "./KayitForm.jsx";
 import KayitDetay from "./KayitDetay.jsx";
 import Uyarilar from "./Uyarilar.jsx";
@@ -10,7 +10,6 @@ import Giris from "./Giris.jsx";
 import ParolaDegistir from "./ParolaDegistir.jsx";
 import Kullanicilar from "./Kullanicilar.jsx";
 import Ayarlar from "./Ayarlar.jsx";
-import logo from "./assets/logo-semak.jpg";
 import { LISTE_KOLON } from "./modul.js";
 
 // Sol menu gruplari (FortiGate tarzi acilir-kapanir). tipler API'den gelir; burada gruplanir.
@@ -40,6 +39,7 @@ export default function App() {
   const [yeniMenu, setYeniMenu] = useState(false);
   const [uyariSayi, setUyariSayi] = useState(0);
   const [ben, setBen] = useState(null);
+  const [marka, setMarka] = useState({ ad: "SITMS", tam: "IT Management Systems", logo: null });
   const [authYuklendi, setAuthYuklendi] = useState(false);
   const [parolaModal, setParolaModal] = useState(false);
   const [kullaniciMenu, setKullaniciMenu] = useState(false);
@@ -52,6 +52,13 @@ export default function App() {
   useEffect(() => {
     api.ben().then((r) => setBen(r.kullanici)).catch(() => setBen(null)).finally(() => setAuthYuklendi(true));
   }, []);
+  // Marka (public) — giristen once de yuklenir; sekme basligini gunceller
+  useEffect(() => {
+    api.marka().then((m) => {
+      setMarka(m);
+      if (m?.tam) document.title = m.tam;
+    }).catch(() => {});
+  }, [ben]);
   // Uygulama verisi — yalnizca giris yapildiktan sonra
   useEffect(() => {
     if (!ben) return;
@@ -81,9 +88,9 @@ export default function App() {
 
   const tipSay = (kod) => ist?.tipBazli.find((x) => x.tip === kod)?.n || 0;
 
-  // Menu grubu acik/kapali durumu
-  const [acikGruplar, setAcikGruplar] = useState(() => new Set(MENU_GRUPLARI.map((g) => g.baslik)));
-  const toggleGrup = (b) => setAcikGruplar((s) => { const n = new Set(s); n.has(b) ? n.delete(b) : n.add(b); return n; });
+  // Menu akordeon: yalnizca TEK grup acik. Bir baslik tiklaninca o acilir, digerleri kapanir.
+  const [acikGrup, setAcikGrup] = useState("Genel");
+  const toggleGrup = (b) => setAcikGrup((cur) => (cur === b ? "" : b));
 
   // Ozel (tip olmayan) menu ogeleri
   const ozelOge = {
@@ -132,7 +139,7 @@ export default function App() {
 
   // ── Kimlik kapisi ──
   if (!authYuklendi) return <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", color: PAL.soluk2 }}>Yükleniyor…</div>;
-  if (!ben) return <Giris onGiris={setBen} />;
+  if (!ben) return <Giris onGiris={setBen} marka={marka} />;
   if (ben.sifre_yenile) return <ParolaDegistir zorunlu onBitti={() => api.ben().then((r) => setBen(r.kullanici))} />;
 
   return (
@@ -143,12 +150,10 @@ export default function App() {
         borderBottom: `1px solid ${PAL.cizgi}`, background: PAL.bg2, position: "sticky", top: 0, zIndex: 20,
       }}>
         <div onClick={() => { setGorunum("liste"); setAktifTip(""); setAktifDurum(""); }} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ background: "#fff", borderRadius: 6, padding: "3px 7px", display: "flex", alignItems: "center" }}>
-            <img src={logo} alt="SEMAK" style={{ height: 26, display: "block" }} />
-          </div>
+          <MarkaLogo marka={marka} yukseklik={26} />
           <div style={{ lineHeight: 1.15 }}>
-            <div style={{ fontWeight: 800, fontSize: 15 }}>SITMS</div>
-            <div style={{ fontSize: 10.5, color: PAL.soluk2 }}>Semak IT Management Systems</div>
+            <div style={{ fontWeight: 800, fontSize: 15 }}>{marka.ad}</div>
+            <div style={{ fontSize: 10.5, color: PAL.soluk2 }}>{marka.tam}</div>
           </div>
         </div>
 
@@ -214,11 +219,11 @@ export default function App() {
             if (cocuklar.length === 0) return null;
             return (
               <MenuGrubu key={grup.baslik} grup={grup} cocuklar={cocuklar}
-                acik={acikGruplar.has(grup.baslik)} onToggle={() => toggleGrup(grup.baslik)} />
+                acik={acikGrup === grup.baslik} onToggle={() => toggleGrup(grup.baslik)} />
             );
           })}
           {digerTipler.length > 0 && (
-            <MenuGrubu grup={{ baslik: "Diğer", ikon: "📦" }} acik={acikGruplar.has("Diğer")} onToggle={() => toggleGrup("Diğer")}
+            <MenuGrubu grup={{ baslik: "Diğer", ikon: "📦" }} acik={acikGrup === "Diğer"} onToggle={() => toggleGrup("Diğer")}
               cocuklar={grupCocuklari({ tipler: digerTipler })} />
           )}
 

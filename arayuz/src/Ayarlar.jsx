@@ -2,8 +2,8 @@
 // Parola GET'te maskeli gelir (smtp_parola_var). Bos birakilirsa mevcut parola KORUNUR.
 import React, { useEffect, useState } from "react";
 import { PAL } from "./tema.js";
-import { api } from "./api.js";
-import { Panel, Eyebrow, Buton, girdiStil, Yukleniyor } from "./ui.jsx";
+import { api, dosyaOku } from "./api.js";
+import { Panel, Eyebrow, Buton, girdiStil, Yukleniyor, MarkaLogo } from "./ui.jsx";
 
 // Office 365 varsayilanlari — ilk kurulumda alanlar dolu gelsin, admin yalniz parolayi girsin.
 const VARSAYILAN = {
@@ -43,15 +43,20 @@ function Anahtar({ acik, onToggle, baslik, aciklama }) {
 export default function Ayarlar() {
   const [f, setF] = useState(null);
   const [parolaVar, setParolaVar] = useState(false);
+  const [marka, setMarka] = useState(null);      // { ad, tam, logo } — onizleme
+  const [logoYukluyor, setLogoYukluyor] = useState(false);
   const [hata, setHata] = useState("");
   const [bilgi, setBilgi] = useState("");
   const [kaydediliyor, setKaydediliyor] = useState(false);
   const [testYaziyor, setTestYaziyor] = useState(false);
 
   useEffect(() => {
-    api.ayarlar().then((a) => {
+    Promise.all([api.ayarlar(), api.marka()]).then(([a, m]) => {
       setParolaVar(!!a.smtp_parola_var);
+      setMarka(m);
       setF({
+        marka_ad: a.marka_ad || m.ad || "",
+        marka_tam: a.marka_tam || m.tam || "",
         smtp_host: a.smtp_host || VARSAYILAN.smtp_host,
         smtp_port: a.smtp_port || VARSAYILAN.smtp_port,
         smtp_kullanici: a.smtp_kullanici || VARSAYILAN.smtp_kullanici,
@@ -63,6 +68,26 @@ export default function Ayarlar() {
       });
     }).catch((e) => setHata(e.message));
   }, []);
+
+  async function logoSec(e) {
+    const dosya = e.target.files?.[0];
+    e.target.value = ""; // ayni dosya tekrar secilebilsin
+    if (!dosya) return;
+    if (dosya.size > 2 * 1024 * 1024) { setHata("Logo çok büyük (en fazla ~2MB)."); return; }
+    setHata(""); setBilgi(""); setLogoYukluyor(true);
+    try {
+      const b64 = await dosyaOku(dosya);
+      await api.markaLogoYukle(b64, dosya.type);
+      setMarka(await api.marka());
+      setBilgi("Logo yüklendi.");
+    } catch (er) { setHata(er.message); }
+    setLogoYukluyor(false);
+  }
+  async function logoSil() {
+    setHata(""); setBilgi("");
+    try { await api.markaLogoSil(); setMarka(await api.marka()); setBilgi("Logo kaldırıldı."); }
+    catch (er) { setHata(er.message); }
+  }
 
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }));
   const toggle = (k) => setF((s) => ({ ...s, [k]: s[k] === "1" ? "0" : "1" }));
@@ -100,7 +125,7 @@ export default function Ayarlar() {
   return (
     <div style={{ maxWidth: 720, margin: "0 auto" }}>
       <div style={{ display: "flex", alignItems: "center", marginBottom: 14 }}>
-        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800 }}>⚙️ E-posta Bildirimleri</h2>
+        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800 }}>⚙️ Ayarlar</h2>
         <div style={{ flex: 1 }} />
         <Buton onClick={test} disabled={testYaziyor}>{testYaziyor ? "Gönderiliyor…" : "✉️ Test Gönder"}</Buton>
         <div style={{ width: 8 }} />
@@ -108,6 +133,32 @@ export default function Ayarlar() {
       </div>
       {hata && <div style={{ color: PAL.rose, fontSize: 13, marginBottom: 10 }}>{hata}</div>}
       {bilgi && <div style={{ color: PAL.green, fontSize: 13, marginBottom: 10 }}>{bilgi}</div>}
+
+      <Panel style={{ padding: 18, marginBottom: 14 }}>
+        <Eyebrow>Marka / Görünüm</Eyebrow>
+        <div style={{ fontSize: 11.5, color: PAL.soluk2, margin: "4px 0 12px" }}>
+          Program adı ve logosu bu kuruluma özeldir. Başka bir firmaya kurarken burayı değiştirmeniz yeterli.
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 6 }}>
+          <MarkaLogo marka={marka || { ad: f.marka_ad }} yukseklik={40} />
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <label style={{ ...btnGibi, cursor: logoYukluyor ? "default" : "pointer", opacity: logoYukluyor ? 0.6 : 1 }}>
+              {logoYukluyor ? "Yükleniyor…" : (marka?.logo ? "Logoyu Değiştir" : "Logo Yükle")}
+              <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml,image/gif" onChange={logoSec} style={{ display: "none" }} disabled={logoYukluyor} />
+            </label>
+            {marka?.logo && <button onClick={logoSil} style={{ ...btnGibi, color: PAL.rose, borderColor: PAL.cizgi2 }}>Kaldır</button>}
+          </div>
+        </div>
+        <div style={{ fontSize: 11.5, color: PAL.soluk2, marginBottom: 12 }}>PNG / JPG / SVG · en fazla ~2MB. Logo yoksa baş harf gösterilir.</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 12 }}>
+          <Etiket baslik="Kısa ad" ipucu="Üst köşede görünür.">
+            <input style={girdiStil} value={f.marka_ad} onChange={(e) => set("marka_ad", e.target.value)} placeholder="Örn: SITMS" />
+          </Etiket>
+          <Etiket baslik="Tam ad" ipucu="Giriş ekranı + sekme başlığı. Buradaki firma adını değiştirin.">
+            <input style={girdiStil} value={f.marka_tam} onChange={(e) => set("marka_tam", e.target.value)} placeholder="Örn: Semak IT Management Systems" />
+          </Etiket>
+        </div>
+      </Panel>
 
       <Panel style={{ padding: 18, marginBottom: 14 }}>
         <Eyebrow>Bildirimler</Eyebrow>
@@ -147,3 +198,9 @@ export default function Ayarlar() {
     </div>
   );
 }
+
+const btnGibi = {
+  display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10,
+  border: `1px solid ${PAL.cizgi2}`, background: PAL.surface2, color: PAL.metin, fontSize: 13,
+  fontWeight: 600, cursor: "pointer",
+};

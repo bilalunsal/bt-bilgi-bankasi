@@ -2,6 +2,24 @@
 import React from "react";
 import { PAL, TIP_RENK, durumRenk } from "./tema.js";
 
+// Marka logosu: yuklenmis logo (data URI) varsa onu, yoksa marka adinin bas harfiyle monogram.
+// White-label: gomulu logo yok; her firma kendi logosunu Ayarlar'dan yukler.
+export function MarkaLogo({ marka, yukseklik = 26 }) {
+  if (marka?.logo) {
+    return (
+      <div style={{ background: "#fff", borderRadius: 8, padding: "4px 8px", display: "flex", alignItems: "center" }}>
+        <img src={marka.logo} alt={marka.ad || ""} style={{ height: yukseklik, maxWidth: yukseklik * 5, objectFit: "contain", display: "block" }} />
+      </div>
+    );
+  }
+  const harf = ((marka?.ad || "?").trim()[0] || "?").toLocaleUpperCase("tr");
+  const kutu = yukseklik + 12;
+  return (
+    <div style={{ width: kutu, height: kutu, borderRadius: 10, display: "grid", placeItems: "center",
+      background: PAL.teal, color: "#06231F", fontWeight: 800, fontSize: Math.round(yukseklik * 0.62) }}>{harf}</div>
+  );
+}
+
 export function Panel({ children, style, ...p }) {
   return (
     <div style={{ background: PAL.surface, border: `1px solid ${PAL.cizgi}`, borderRadius: 14, ...style }} {...p}>

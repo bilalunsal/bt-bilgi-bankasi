@@ -15,7 +15,7 @@ import {
   girisDene, oturumKullanici, oturumKapat, kullaniciBulKadi,
   kullaniciListe, kullaniciEkle, kullaniciDurum, kullaniciRol, parolaDegistir, parolaDogru,
   zimmetAta, zimmetIade, zimmetAktif, zimmetGecmisi, personelZimmetleri,
-  ayarlariGetir, ayarlariKaydet,
+  ayarGetir, ayarKur, ayarlariGetir, ayarlariKaydet,
 } from "./db.js";
 import { epostaTest } from "./eposta.js";
 import { ILISKI_TURLERI, ZIMMETLENEBILIR } from "./tohum-alanlar.js";
@@ -57,7 +57,7 @@ function cerezYaz(res, token) {
 }
 function cerezSil(res) { res.set("Set-Cookie", "oturum=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0"); }
 
-const SERBEST = new Set(["/api/giris", "/api/cikis", "/api/ben", "/api/version"]);
+const SERBEST = new Set(["/api/giris", "/api/cikis", "/api/ben", "/api/version", "/api/marka"]);
 app.use((req, res, next) => {
   if (!req.path.startsWith("/api/")) return next();     // statik arayuz guard'dan once
   if (SERBEST.has(req.path)) return next();
@@ -125,7 +125,8 @@ app.get("/api/ayarlar", sarmala((req, res) => {
   if (!adminGerek(req, res)) return;
   const ham = ayarlariGetir(db);
   const cikti = {};
-  for (const [k, v] of Object.entries(ham)) { if (!GIZLI_AYAR.has(k)) cikti[k] = v; }
+  // marka_logo buyuk bir data URI → ayar echo'suna koyma; arayuz onu /api/marka'dan alir.
+  for (const [k, v] of Object.entries(ham)) { if (!GIZLI_AYAR.has(k) && k !== "marka_logo") cikti[k] = v; }
   cikti.smtp_parola_var = !!ham.smtp_parola; // parola tanimli mi (deger gonderilmez)
   res.json(cikti);
 }));
@@ -135,7 +136,8 @@ app.put("/api/ayarlar", sarmala((req, res) => {
   const g = req.body || {};
   const yaz = {};
   const IZIN = ["smtp_host", "smtp_port", "smtp_kullanici", "smtp_gonderen",
-    "bildirim_hedef", "bildirim_aktif", "bildirim_yeni_talep"];
+    "bildirim_hedef", "bildirim_aktif", "bildirim_yeni_talep",
+    "marka_ad", "marka_tam"];
   for (const k of IZIN) if (k in g) yaz[k] = g[k] == null ? "" : String(g[k]);
   // Parola: sadece dolu geldiyse guncelle (bos string → dokunma)
   if (typeof g.smtp_parola === "string" && g.smtp_parola.length > 0) yaz.smtp_parola = g.smtp_parola;
@@ -147,6 +149,41 @@ app.post("/api/ayarlar/eposta-test", sarmala(async (req, res) => {
   if (!adminGerek(req, res)) return;
   const sonuc = await epostaTest(db, (req.body || {}).kime);
   res.json(sonuc);
+}));
+
+// ── Marka (white-label) ──────────────────────────────────────────────────────
+// PUBLIC — giris ekraninda da gorunmesi gerektigi icin auth'suz (SERBEST).
+// Deger yoksa version.json'dan varsayilan; logo yoksa null (arayuz monogram gosterir).
+function markaOku() {
+  let ad = ayarGetir(db, "marka_ad", "");
+  let tam = ayarGetir(db, "marka_tam", "");
+  if (!ad || !tam) {
+    try {
+      const v = JSON.parse(readFileSync(join(PROJE_KOK, "version.json"), "utf8"));
+      ad = ad || v.ad || "SITMS";
+      tam = tam || v.tamAd || "IT Management Systems";
+    } catch { ad = ad || "SITMS"; tam = tam || "IT Management Systems"; }
+  }
+  return { ad, tam, logo: ayarGetir(db, "marka_logo", "") || null };
+}
+app.get("/api/marka", sarmala((_req, res) => res.json(markaOku())));
+
+const MARKA_LOGO_MAX = 2 * 1024 * 1024; // ~2MB (data URI olarak DB'de)
+const MARKA_MIME = new Set(["image/png", "image/jpeg", "image/webp", "image/svg+xml", "image/gif"]);
+app.post("/api/marka/logo", sarmala((req, res) => {
+  if (!adminGerek(req, res)) return;
+  const { veri, tur } = req.body || {};
+  if (!veri || typeof veri !== "string") return res.status(400).json({ hata: "Görsel verisi (base64) gerekli" });
+  if (!MARKA_MIME.has(String(tur))) return res.status(400).json({ hata: "Desteklenmeyen görsel türü (png/jpeg/webp/svg/gif)" });
+  // base64 kaba boyut: her 4 karakter ~3 bayt
+  if (veri.length * 0.75 > MARKA_LOGO_MAX) return res.status(413).json({ hata: "Logo çok büyük (en fazla ~2MB)" });
+  ayarKur(db, "marka_logo", `data:${tur};base64,${veri}`);
+  res.json({ ok: true });
+}));
+app.delete("/api/marka/logo", sarmala((req, res) => {
+  if (!adminGerek(req, res)) return;
+  ayarKur(db, "marka_logo", "");
+  res.json({ ok: true });
 }));
 
 // ── Meta ────────────────────────────────────────────────────────────────────
