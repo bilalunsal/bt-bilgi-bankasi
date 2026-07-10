@@ -10,6 +10,7 @@ export default function KayitDetay({ id, tipMeta, iliskiTurleri, onDuzenle, onGe
   const [k, setK] = useState(null);
   const [alanlar, setAlanlar] = useState([]);
   const [yeniYorum, setYeniYorum] = useState("");
+  const [yorumGorunur, setYorumGorunur] = useState(false); // talepte: musteriye gorunur mu
   const [hata, setHata] = useState("");
 
   async function yukle() {
@@ -29,7 +30,7 @@ export default function KayitDetay({ id, tipMeta, iliskiTurleri, onDuzenle, onGe
 
   async function yorumGonder() {
     if (!yeniYorum.trim()) return;
-    await api.yorumEkle(k.id, { metin: yeniYorum.trim() });
+    await api.yorumEkle(k.id, { metin: yeniYorum.trim(), gorunur: yorumGorunur });
     setYeniYorum(""); yukle();
   }
   async function sil() {
@@ -92,19 +93,34 @@ export default function KayitDetay({ id, tipMeta, iliskiTurleri, onDuzenle, onGe
           </Panel>
 
           <Panel style={{ padding: 18 }}>
-            <Eyebrow>Yorumlar ({k.yorumlar?.length || 0})</Eyebrow>
-            <div style={{ display: "flex", gap: 8, margin: "8px 0 14px" }}>
-              <input style={girdiStil} value={yeniYorum} placeholder="Yorum ekle…"
+            <Eyebrow>{k.tip === "talep" ? "Yorumlar / Müşteri yazışması" : "Yorumlar"} ({k.yorumlar?.length || 0})</Eyebrow>
+            <div style={{ display: "flex", gap: 8, margin: "8px 0 6px" }}>
+              <input style={girdiStil} value={yeniYorum} placeholder={k.tip === "talep" && yorumGorunur ? "Müşteriye yanıt yazın…" : "Yorum ekle…"}
                 onChange={(e) => setYeniYorum(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && yorumGonder()} />
-              <Buton birincil onClick={yorumGonder}>Ekle</Buton>
+              <Buton birincil onClick={yorumGonder}>{k.tip === "talep" && yorumGorunur ? "Yanıtla" : "Ekle"}</Buton>
             </div>
-            {(k.yorumlar || []).map((y) => (
-              <div key={y.id} style={{ padding: "8px 0", borderTop: `1px solid ${PAL.cizgi}` }}>
-                <div style={{ fontSize: 13.5, whiteSpace: "pre-wrap" }}>{y.metin}</div>
-                <div style={{ fontSize: 11, color: PAL.soluk2, marginTop: 3 }}>{y.yazar || "—"} · {tarihFmt(y.zaman)}</div>
-              </div>
-            ))}
+            {k.tip === "talep" && (
+              <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, color: yorumGorunur ? PAL.teal : PAL.soluk2, marginBottom: 12, cursor: "pointer" }}>
+                <input type="checkbox" checked={yorumGorunur} onChange={(e) => setYorumGorunur(e.target.checked)} />
+                Müşteriye görünür (portalda gösterilir{yorumGorunur ? " + e-posta" : ""})
+              </label>
+            )}
+            {(k.yorumlar || []).map((y) => {
+              const musteriden = y.yazar_tip === "musteri";
+              const gorunur = !!y.gorunur;
+              return (
+                <div key={y.id} style={{ padding: "8px 0", borderTop: `1px solid ${PAL.cizgi}`,
+                  borderLeft: musteriden ? `3px solid ${PAL.mavi}` : (gorunur ? `3px solid ${PAL.teal}` : "none"), paddingLeft: (musteriden || gorunur) ? 10 : 0 }}>
+                  <div style={{ fontSize: 13.5, whiteSpace: "pre-wrap" }}>{y.metin}</div>
+                  <div style={{ fontSize: 11, color: PAL.soluk2, marginTop: 3, display: "flex", alignItems: "center", gap: 6 }}>
+                    <span>{y.yazar || "—"} · {tarihFmt(y.zaman)}</span>
+                    {musteriden && <Rozet renk={PAL.mavi}>müşteri</Rozet>}
+                    {!musteriden && gorunur && <Rozet renk={PAL.teal}>müşteriye görünür</Rozet>}
+                  </div>
+                </div>
+              );
+            })}
           </Panel>
         </div>
 

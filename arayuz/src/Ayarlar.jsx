@@ -89,6 +89,7 @@ export default function Ayarlar() {
         bildirim_hedef: a.bildirim_hedef || VARSAYILAN.bildirim_hedef,
         bildirim_aktif: a.bildirim_aktif ?? VARSAYILAN.bildirim_aktif,
         bildirim_yeni_talep: a.bildirim_yeni_talep ?? VARSAYILAN.bildirim_yeni_talep,
+        bildirim_musteri_durum: a.bildirim_musteri_durum ?? "1",
         yedek_aktif: a.yedek_aktif ?? "0",
         yedek_klasor: a.yedek_klasor ?? "",
         yedek_tut: a.yedek_tut ?? "14",
@@ -194,7 +195,10 @@ export default function Ayarlar() {
           baslik="E-posta bildirimleri açık" aciklama="Kapalıysa hiçbir otomatik e-posta gönderilmez (test hariç)." />
         <div style={{ borderTop: `1px solid ${PAL.cizgi}` }} />
         <Anahtar acik={f.bildirim_yeni_talep === "1"} onToggle={() => toggle("bildirim_yeni_talep")}
-          baslik="Yeni müşteri talebi geldiğinde e-posta" aciklama="Müşteri talep kapısından talep gönderince IT'ye bildirim." />
+          baslik="Yeni müşteri talebi / yanıtı geldiğinde e-posta" aciklama="Müşteri talep gönderince veya mevcut talebine mesaj yazınca IT'ye bildirim." />
+        <div style={{ borderTop: `1px solid ${PAL.cizgi}` }} />
+        <Anahtar acik={f.bildirim_musteri_durum === "1"} onToggle={() => toggle("bildirim_musteri_durum")}
+          baslik="Müşteriye durum / yanıt e-postası" aciklama="Talebin durumu değişince veya müşteriye görünür yanıt yazılınca müşteriye bildirim (e-postası kayıtlıysa)." />
         <div style={{ marginTop: 10 }}>
           <Etiket baslik="Bildirim alıcı(ları)" ipucu="Birden fazla için virgülle ayırın.">
             <input style={girdiStil} value={f.bildirim_hedef} onChange={(e) => set("bildirim_hedef", e.target.value)} placeholder="admin@semak.com.tr" />

@@ -4,8 +4,9 @@
 import express from "express";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { veritabaniAc, musteriBulToken, talepEkle } from "./db.js";
-import { yeniTalepBildir } from "./eposta.js";
+import { veritabaniAc, musteriBulToken, talepEkle,
+  musteriTalepleri, musteriTalepGetir, musteriMesajEkle } from "./db.js";
+import { yeniTalepBildir, musteriMesajBildir } from "./eposta.js";
 
 const META_URL = (typeof __dirname !== "undefined") ? pathToFileURL(__dirname + "/").href : import.meta.url;
 const PROJE_KOK = resolve(dirname(fileURLToPath(META_URL)), "..");
@@ -53,6 +54,33 @@ textarea{resize:vertical;min-height:96px}
 const bulunamadi = (res) => res.status(404).send(sayfa("Bulunamadı",
   `<h1>Bağlantı geçersiz</h1><div class="alt">Bu talep bağlantısı geçerli değil veya kapatılmış. Lütfen size verilen güncel bağlantıyı kullanın ya da bizimle iletişime geçin.</div>`));
 
+// Durum → müşteri-dostu renk (kaba eşleşme). Sadece görsel.
+function durumRenk(durum) {
+  const d = (durum || "").toLocaleLowerCase("tr");
+  if (/(çözüldü|cozuldu|kapandı|kapandi|tamam)/.test(d)) return "#3FD08A";
+  if (/(reddedildi|iptal)/.test(d)) return "#F4707F";
+  if (/(inceleniyor|işlem|islem)/.test(d)) return "#5B9BFF";
+  if (/(beklemede|bekliyor)/.test(d)) return "#E0B978";
+  return "#9AA7BD"; // Yeni vb.
+}
+const rozet = (durum) => `<span style="display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:700;color:#0B0F18;background:${durumRenk(durum)}">${esc(durum || "-")}</span>`;
+const trh = (iso) => { try { return new Date(iso).toLocaleDateString("tr-TR"); } catch { return ""; } };
+
+// "Taleplerim" listesi (form sayfasinin altinda gosterilir).
+function taleplerimHtml(db, m, token) {
+  const liste = musteriTalepleri(db, m.id);
+  if (!liste.length) return "";
+  const satirlar = liste.slice(0, 20).map((t) => `
+    <a href="/t/${esc(token)}/talep/${t.id}" style="display:flex;align-items:center;gap:10px;padding:11px 0;border-top:1px solid #26314B;text-decoration:none;color:#E7ECF3">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.baslik)}</div>
+        <div style="font-size:11.5px;color:#6B7896">${esc(t.kategori || "")}${t.kategori ? " · " : ""}${trh(t.olusturma)}</div>
+      </div>
+      ${rozet(t.durum)}
+    </a>`).join("");
+  return `<div style="margin-top:26px"><div style="font-size:13px;color:#9AA7BD;font-weight:700;margin-bottom:2px">Taleplerim</div>${satirlar}</div>`;
+}
+
 // ── Form ──────────────────────────────────────────────────────────────────────
 app.get("/t/:token", (req, res) => {
   const m = musteriBulToken(db, req.params.token);
@@ -73,7 +101,56 @@ app.get("/t/:token", (req, res) => {
       <label>Açıklama <span class="zorunlu">*</span></label>
       <textarea name="aciklama" maxlength="5000" required placeholder="Sorunu / talebi detaylandırın"></textarea>
       <button class="btn" type="submit">Talebi Gönder</button>
+    </form>
+    ${taleplerimHtml(db, m, req.params.token)}`));
+});
+
+// ── Talep detayi (SADECE kendi talebi) — durum + gorunur mesaj akisi + yanit kutusu ──
+app.get("/t/:token/talep/:id", (req, res) => {
+  const m = musteriBulToken(db, req.params.token);
+  if (!m) return bulunamadi(res);
+  const t = musteriTalepGetir(db, m.id, Number(req.params.id));
+  if (!t) return bulunamadi(res); // baskasinin/olmayan talep → notr 404
+  const mesajlar = (t.mesajlar || []).map((y) => {
+    const ben = y.yazar_tip === "musteri";
+    return `<div style="margin:10px 0;padding:11px 13px;border-radius:12px;background:${ben ? "#1B2338" : "#12233a"};border:1px solid #26314B">
+      <div style="font-size:11.5px;color:#6B7896;margin-bottom:3px">${ben ? "Siz" : "Destek ekibi"} · ${trh(y.zaman)}</div>
+      <div style="white-space:pre-wrap;font-size:13.5px">${esc(y.metin)}</div></div>`;
+  }).join("") || `<div class="alt">Henüz yanıt yok. Ekibimiz talebinizi inceliyor.</div>`;
+  res.send(sayfa("Talep Durumu", `
+    <a href="/t/${esc(req.params.token)}" style="color:#36C9B5;text-decoration:none;font-size:13px">← Taleplerim</a>
+    <h1 style="margin-top:10px">${esc(t.baslik)}</h1>
+    <div class="alt">Durum: ${rozet(t.durum)} &nbsp; · &nbsp; ${trh(t.olusturma)}</div>
+    <div style="margin:6px 0 14px;padding:11px 13px;border-radius:12px;background:#0B0F18;border:1px solid #26314B;white-space:pre-wrap;font-size:13.5px">${esc(t.aciklama || "")}</div>
+    <div style="font-size:13px;color:#9AA7BD;font-weight:700">Yazışma</div>
+    ${mesajlar}
+    <form method="post" action="/t/${esc(req.params.token)}/talep/${t.id}/mesaj" style="margin-top:14px">
+      <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off">
+      <label>Ek mesaj / güncelleme</label>
+      <textarea name="mesaj" maxlength="3000" required placeholder="Eklemek istediğiniz bir şey var mı?"></textarea>
+      <button class="btn" type="submit">Gönder</button>
     </form>`));
+});
+
+// Musteri mevcut talebine mesaj ekler.
+app.post("/t/:token/talep/:id/mesaj", (req, res) => {
+  const m = musteriBulToken(db, req.params.token);
+  if (!m) return bulunamadi(res);
+  const ip = req.ip || "?";
+  if (hizAsildi(`t:${m.id}`, 12) || hizAsildi(`ip:${ip}`, 25)) {
+    return res.status(429).send(sayfa("Çok fazla istek", `<h1>Biraz bekleyin</h1><div class="alt">Kısa sürede çok fazla istek. Birkaç dakika sonra tekrar deneyin.</div>`));
+  }
+  const b = req.body || {};
+  if (b.website) return res.redirect(`/t/${req.params.token}/talep/${req.params.id}`); // honeypot: sessizce yut
+  const talepId = Number(req.params.id);
+  try {
+    musteriMesajEkle(db, { talepId, musteriId: m.id, ad: m.ad, metin: b.mesaj });
+    musteriMesajBildir(db, { talepId, baslik: (musteriTalepGetir(db, m.id, talepId)?.baslik) || "", musteri: m.ad, mesaj: String(b.mesaj || "").slice(0, 3000) })
+      .catch((e) => console.error("[intake] mesaj bildirimi:", e.message));
+    res.redirect(`/t/${req.params.token}/talep/${talepId}`);
+  } catch {
+    return bulunamadi(res); // sahip degil / gecersiz → notr
+  }
 });
 
 // ── Gonderim ────────────────────────────────────────────────────────────────────

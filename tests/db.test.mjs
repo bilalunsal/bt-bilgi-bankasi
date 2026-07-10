@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import {
   veritabaniAc, kayitEkle, kayitGetir, kayitGuncelle, kayitSil, ara, aramaIfadesi, alanTanimlari,
   uyarilar, musteriEkle, musteriBulToken, musteriTokenYenile, musteriDurum, talepEkle,
+  yorumEkle, yorumlar, musteriTalepleri, musteriTalepGetir, musteriMesajEkle,
   kullaniciBulKadi, kullaniciEkle, parolaDogru, parolaDegistir, kullaniciDurum,
   girisDene, oturumKullanici, oturumKapat,
   zimmetAta, zimmetIade, zimmetAktif, zimmetGecmisi, personelZimmetleri,
@@ -212,6 +213,37 @@ test("musteri token: uretim, dogrulama, yenileme, pasiflestirme", () => {
   // pasiflestirme → token gecerli olsa da giris yok
   musteriDurum(db, id, false);
   assert.equal(musteriBulToken(db, yeni), null, "pasif musteri giremez");
+});
+
+test("musteri portali: sahiplik izolasyonu + yalniz gorunur mesaj akisi", () => {
+  const db = yeniDb();
+  const { id: m1 } = musteriEkle(db, { ad: "Firma A", eposta: "a@a.com" });
+  const { id: m2 } = musteriEkle(db, { ad: "Firma B" });
+  const t1 = talepEkle(db, { musteri_id: m1, musteri: "Firma A", konu: "Yazici bozuk", aciklama: "cikti alamiyorum" });
+  talepEkle(db, { musteri_id: m2, musteri: "Firma B", konu: "Baska talep", aciklama: "x" });
+  // m1 YALNIZCA kendi talebini gorur
+  const liste = musteriTalepleri(db, m1);
+  assert.equal(liste.length, 1, "sadece kendi talebi");
+  assert.equal(liste[0].id, t1);
+  assert.equal(liste[0].kategori !== undefined, true);
+  // Baskasinin (m2) talebini m1 GETIREMEZ (izolasyon)
+  const digerId = musteriTalepleri(db, m2)[0].id;
+  assert.equal(musteriTalepGetir(db, m1, digerId), null, "baskasinin talebi gorunmez");
+  // Ic yorum (gorunur=0) musteriye SIZMAZ; yalniz gorunur=1 gelir
+  yorumEkle(db, t1, { metin: "ic not (personel)", yazar: "admin" });                    // gorunur=0
+  yorumEkle(db, t1, { metin: "Merhaba, inceliyoruz", yazar: "admin", gorunur: 1 });      // gorunur=1
+  const det = musteriTalepGetir(db, m1, t1);
+  assert.equal(det.mesajlar.length, 1, "sadece gorunur yorum musteriye gelir (ic not sizmaz)");
+  assert.equal(det.mesajlar[0].metin, "Merhaba, inceliyoruz");
+  // Musteri kendi talebine mesaj ekler → gorunur, yazar_tip=musteri
+  musteriMesajEkle(db, { talepId: t1, musteriId: m1, ad: "Firma A", metin: "Tesekkurler" });
+  const det2 = musteriTalepGetir(db, m1, t1);
+  assert.equal(det2.mesajlar.length, 2);
+  assert.equal(det2.mesajlar[1].yazar_tip, "musteri");
+  // m2 baskasinin (m1) talebine mesaj EKLEYEMEZ
+  assert.throws(() => musteriMesajEkle(db, { talepId: t1, musteriId: m2, metin: "sizma denemesi" }), /bulunamadi/i);
+  // Personel tarafi tum yorumlari (ic dahil) gorur
+  assert.equal(yorumlar(db, t1).length, 3, "personel: ic not + gorunur yanit + musteri mesaji");
 });
 
 test("talep kapisi: intake talebi olusturur, musteriye sahiplenir, aranabilir", () => {

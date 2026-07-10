@@ -1,7 +1,7 @@
 {
-  "version": "1.1.0",
-  "yapim": 11,
+  "version": "1.2.0",
+  "yapim": 12,
   "ad": "SITMS",
   "tamAd": "IT Management Systems",
-  "not": "Otomatik yedekleme (ikinci disk/ag paylasimi) + form focus fix + menu akordeon"
+  "not": "Musteri talep durum takibi + portal mesajlasma + gorunur yanit + durum e-postasi"
 }

@@ -29,9 +29,25 @@ export function veritabaniAc(yol = DB_YOL) {
   db.exec("PRAGMA journal_mode = WAL");
   db.exec("PRAGMA foreign_keys = ON");
   semaKur(db);
+  semaMigrasyon(db);
   alanlariSenkronla(db);
   varsayilanKullanici(db);
   return db;
+}
+
+// Hafif migrasyon: eksik kolonlari ekle (dolu DB'de veri bozmadan). SQLite kolon varsa hata verir → kontrol.
+function kolonEkle(db, tablo, kolon, tanim) {
+  const varMi = db.prepare(`PRAGMA table_info(${tablo})`).all().some((c) => c.name === kolon);
+  if (varMi) return;
+  // Iki surec (server + intake) ayni anda migrasyon yaparsa ikisi de ALTER deneyebilir →
+  // "duplicate column" hatasini yut (yarisi diger surec kazanmis, kolon zaten var).
+  try { db.exec(`ALTER TABLE ${tablo} ADD COLUMN ${kolon} ${tanim}`); }
+  catch (e) { if (!/duplicate column/i.test(e.message)) throw e; }
+}
+function semaMigrasyon(db) {
+  // Musteri portali: yorumun musteriye gorunur olup olmadigi + yazan tarafi.
+  kolonEkle(db, "yorumlar", "gorunur", "INTEGER NOT NULL DEFAULT 0");
+  kolonEkle(db, "yorumlar", "yazar_tip", "TEXT NOT NULL DEFAULT 'personel'");
 }
 
 // ── SEMA ────────────────────────────────────────────────────────────────────
@@ -369,11 +385,12 @@ export function ara(db, { q = "", tip = null, durum = null, limit = 50, offset =
 }
 
 // ── YORUMLAR ────────────────────────────────────────────────────────────────
-export function yorumEkle(db, kayitId, { yazar = null, metin }) {
+// gorunur=1 → musteri portalinda gorunur. yazar_tip: 'personel' | 'musteri'.
+export function yorumEkle(db, kayitId, { yazar = null, metin, gorunur = 0, yazar_tip = "personel" }) {
   const t = simdi();
   const r = db.prepare(
-    "INSERT INTO yorumlar (kayit_id, yazar, metin, zaman) VALUES (?, ?, ?, ?)"
-  ).run(kayitId, yazar, metin, t);
+    "INSERT INTO yorumlar (kayit_id, yazar, metin, zaman, gorunur, yazar_tip) VALUES (?, ?, ?, ?, ?, ?)"
+  ).run(kayitId, yazar, metin, t, gorunur ? 1 : 0, yazar_tip);
   db.prepare("INSERT INTO gecmis (kayit_id, kullanici, eylem, zaman) VALUES (?, ?, 'yorum', ?)")
     .run(kayitId, yazar, t);
   ftsYaz(db, kayitId); // yorum metni de aranabilir olsun
@@ -686,6 +703,49 @@ export function talepEkle(db, { musteri_id = null, musteri = null, konu, iletisi
       kaynak,
     },
   });
+}
+
+// ── MUSTERI PORTALI (durum takibi + mesajlasma) ──────────────────────────────
+// GUVENLIK: bu fonksiyonlar internet'e acik intake.js'ten cagrilir. HER SORGU musteri_id
+// ile filtrelidir → musteri YALNIZCA kendi taleplerine erisir. Yalniz beyaz-liste alanlar
+// ve yalniz gorunur=1 yorumlar doner (ic not/atanan/gecmis ASLA sizmaz).
+export function musteriGetir(db, id) {
+  return db.prepare("SELECT id, ad, eposta, aktif FROM musteriler WHERE id = ?").get(id) || null;
+}
+// Musterinin kendi talepleri (lean liste). Sadece guvenli alanlar.
+export function musteriTalepleri(db, musteriId) {
+  return db.prepare(`
+    SELECT id, baslik, durum,
+           json_extract(veri, '$.kategori') AS kategori,
+           olusturma, guncelleme
+    FROM kayitlar
+    WHERE tip = 'talep' AND arsiv = 0 AND json_extract(veri, '$.musteri_id') = ?
+    ORDER BY guncelleme DESC`).all(musteriId);
+}
+// Tek talep — SADECE sahibiyse. Guvenli alanlar + gorunur mesaj akisi. Degilse null.
+export function musteriTalepGetir(db, musteriId, talepId) {
+  const t = db.prepare(`
+    SELECT id, baslik, durum,
+           json_extract(veri, '$.kategori') AS kategori,
+           json_extract(veri, '$.aciklama') AS aciklama,
+           olusturma, guncelleme
+    FROM kayitlar
+    WHERE id = ? AND tip = 'talep' AND arsiv = 0 AND json_extract(veri, '$.musteri_id') = ?`).get(talepId, musteriId);
+  if (!t) return null;
+  t.mesajlar = db.prepare(
+    "SELECT yazar, yazar_tip, metin, zaman FROM yorumlar WHERE kayit_id = ? AND gorunur = 1 ORDER BY zaman"
+  ).all(talepId);
+  return t;
+}
+// Musteri kendi talebine mesaj ekler (gorunur=1, yazar_tip=musteri). Sahip degilse firlatir.
+export function musteriMesajEkle(db, { talepId, musteriId, ad = null, metin }) {
+  const sahip = db.prepare(
+    "SELECT id FROM kayitlar WHERE id = ? AND tip = 'talep' AND json_extract(veri, '$.musteri_id') = ?"
+  ).get(talepId, musteriId);
+  if (!sahip) throw new Error("Talep bulunamadi");
+  const temiz = String(metin || "").trim().slice(0, 3000);
+  if (!temiz) throw new Error("Mesaj bos olamaz");
+  return yorumEkle(db, talepId, { yazar: ad || "Musteri", metin: temiz, gorunur: 1, yazar_tip: "musteri" });
 }
 
 // ── AYARLAR (anahtar/deger) ──────────────────────────────────────────────────

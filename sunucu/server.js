@@ -15,9 +15,9 @@ import {
   girisDene, oturumKullanici, oturumKapat, kullaniciBulKadi,
   kullaniciListe, kullaniciEkle, kullaniciDurum, kullaniciRol, parolaDegistir, parolaDogru,
   zimmetAta, zimmetIade, zimmetAktif, zimmetGecmisi, personelZimmetleri,
-  ayarGetir, ayarKur, ayarlariGetir, ayarlariKaydet,
+  ayarGetir, ayarKur, ayarlariGetir, ayarlariKaydet, musteriGetir,
 } from "./db.js";
-import { epostaTest } from "./eposta.js";
+import { epostaTest, musteriDurumBildir, musteriYanitBildir } from "./eposta.js";
 import { yedekConfig, yedekAl, yedekListe, otomatikYedekDene, YEDEK_ADI_DESEN } from "./yedek.js";
 import { ILISKI_TURLERI, ZIMMETLENEBILIR } from "./tohum-alanlar.js";
 
@@ -137,7 +137,7 @@ app.put("/api/ayarlar", sarmala((req, res) => {
   const g = req.body || {};
   const yaz = {};
   const IZIN = ["smtp_host", "smtp_port", "smtp_kullanici", "smtp_gonderen",
-    "bildirim_hedef", "bildirim_aktif", "bildirim_yeni_talep",
+    "bildirim_hedef", "bildirim_aktif", "bildirim_yeni_talep", "bildirim_musteri_durum",
     "marka_ad", "marka_tam",
     "yedek_aktif", "yedek_klasor", "yedek_tut"];
   for (const k of IZIN) if (k in g) yaz[k] = g[k] == null ? "" : String(g[k]);
@@ -280,9 +280,23 @@ app.post("/api/kayit", sarmala((req, res) => {
   res.status(201).json(kayitGetir(db, id));
 }));
 app.put("/api/kayit/:id", sarmala((req, res) => {
-  const ok = kayitGuncelle(db, Number(req.params.id), req.body || {});
+  const id = Number(req.params.id);
+  const onceki = kayitGetir(db, id); // durum degisimini yakalamak icin
+  const ok = kayitGuncelle(db, id, req.body || {});
   if (!ok) return res.status(404).json({ hata: "Kayit bulunamadi" });
-  res.json(kayitGetir(db, Number(req.params.id)));
+  const guncel = kayitGetir(db, id);
+  // Talep durumu degistiyse MUSTERIYE bildirim (varsa e-posta). Ana akisi bloklamaz.
+  if (onceki && guncel && guncel.tip === "talep" && onceki.durum !== guncel.durum) {
+    const mid = guncel.veri?.musteri_id;
+    if (mid) {
+      const m = musteriGetir(db, mid);
+      if (m?.eposta) {
+        musteriDurumBildir(db, { epostaAdres: m.eposta, baslik: guncel.baslik, durum: guncel.durum, talepId: id, marka: ayarGetir(db, "marka_tam", "Destek") })
+          .catch((e) => console.error("[durum bildirimi]", e.message));
+      }
+    }
+  }
+  res.json(guncel);
 }));
 app.delete("/api/kayit/:id", sarmala((req, res) => {
   res.json({ silindi: kayitSil(db, Number(req.params.id)) });
@@ -290,10 +304,23 @@ app.delete("/api/kayit/:id", sarmala((req, res) => {
 
 // ── Yorum / iliski ──────────────────────────────────────────────────────────
 app.post("/api/kayit/:id/yorum", sarmala((req, res) => {
-  const { metin, yazar } = req.body || {};
+  const { metin, gorunur } = req.body || {};
   if (!metin) return res.status(400).json({ hata: "metin zorunlu" });
-  const id = yorumEkle(db, Number(req.params.id), { metin, yazar });
-  res.status(201).json({ id, yorumlar: yorumlar(db, Number(req.params.id)) });
+  const kayitId = Number(req.params.id);
+  const yazar = req.kullanici?.ad || req.kullanici?.kadi || "personel";
+  const gor = gorunur ? 1 : 0;
+  const id = yorumEkle(db, kayitId, { metin, yazar, gorunur: gor, yazar_tip: "personel" });
+  // Musteriye gorunur yanit + talep + musteri e-postasi varsa musteriyi haberdar et.
+  if (gor) {
+    const k = kayitGetir(db, kayitId);
+    const mid = k?.tip === "talep" ? k.veri?.musteri_id : null;
+    if (mid) {
+      const m = musteriGetir(db, mid);
+      if (m?.eposta) musteriYanitBildir(db, { epostaAdres: m.eposta, baslik: k.baslik, talepId: kayitId, marka: ayarGetir(db, "marka_tam", "Destek") })
+        .catch((e) => console.error("[yanit bildirimi]", e.message));
+    }
+  }
+  res.status(201).json({ id, yorumlar: yorumlar(db, kayitId) });
 }));
 app.post("/api/kayit/:id/iliski", sarmala((req, res) => {
   const { hedef_id, tur } = req.body || {};

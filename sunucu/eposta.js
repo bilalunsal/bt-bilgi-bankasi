@@ -13,7 +13,8 @@ const VARSAYILAN = {
   smtp_gonderen: "",             // From adresi; bos ise smtp_kullanici kullanilir
   bildirim_hedef: "",            // IT bildirim alicilari (virgulle birden fazla)
   bildirim_aktif: "1",           // ana anahtar
-  bildirim_yeni_talep: "1",      // yeni musteri talebi gelince mail at
+  bildirim_yeni_talep: "1",      // yeni musteri talebi / musteri yaniti gelince IT'ye mail
+  bildirim_musteri_durum: "1",   // talep durumu degisince MUSTERIYE mail
 };
 
 export function epostaAyarlari(db) {
@@ -87,6 +88,59 @@ export async function epostaTest(db, kime) {
       <p>✅ Bu bir <b>test e-postasidir</b>. SITMS e-posta bildirimleri çalışıyor.</p>
       <p style="color:#6B7896;font-size:12px">Semak IT Management Systems</p></div>`,
     zorla: true,
+  });
+}
+
+// Musteri, mevcut talebine portaldan mesaj yazinca IT'ye bildirim (intake'ten cagrilir).
+export async function musteriMesajBildir(db, { talepId, baslik, musteri, mesaj }) {
+  const a = epostaAyarlari(db);
+  if (a.bildirim_yeni_talep !== "1") return { ok: false, atlandi: true }; // ayni anahtara bagli
+  const hedef = bildirimHedefleri(db);
+  if (hedef.length === 0) return { ok: false, atlandi: true };
+  const esc = (s) => String(s ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+  return epostaGonder(db, {
+    kime: hedef,
+    konu: `💬 Müşteri yanıtı: ${baslik}`.slice(0, 180),
+    metin: `${musteri || "Müşteri"} #${talepId} talebine mesaj yazdı:\n\n${mesaj}`,
+    html: `<div style="font-family:system-ui,Segoe UI,sans-serif;font-size:14px;color:#0F1420">
+      <h2 style="margin:0 0 8px">💬 Müşteri yanıtı</h2>
+      <div style="color:#6B7896">${esc(musteri) || "Müşteri"} · talep #${esc(talepId)} · <b>${esc(baslik)}</b></div>
+      <p style="white-space:pre-wrap;margin-top:10px">${esc(mesaj)}</p></div>`,
+  });
+}
+
+// Talep durumu degisince MUSTERIYE bildirim (server.js'ten cagrilir). musteri e-postasi verilir.
+export async function musteriDurumBildir(db, { epostaAdres, baslik, durum, talepId, marka = "Destek" }) {
+  const a = epostaAyarlari(db);
+  if (a.bildirim_musteri_durum !== "1") return { ok: false, atlandi: true, neden: "kapali" };
+  if (!epostaAdres) return { ok: false, atlandi: true, neden: "musteri e-postasi yok" };
+  const esc = (s) => String(s ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+  return epostaGonder(db, {
+    kime: epostaAdres,
+    konu: `Talebinizin durumu güncellendi: ${durum}`.slice(0, 180),
+    metin: `Merhaba,\n\n"${baslik}" başlıklı talebinizin durumu: ${durum}\n\nDetay için size iletilen bağlantıyı kullanabilirsiniz.\n\n${marka}`,
+    html: `<div style="font-family:system-ui,Segoe UI,sans-serif;font-size:14px;color:#0F1420">
+      <p>Merhaba,</p>
+      <p>"<b>${esc(baslik)}</b>" başlıklı talebinizin durumu güncellendi:</p>
+      <p style="font-size:16px"><b>${esc(durum)}</b></p>
+      <p style="color:#6B7896;font-size:12px">Detay için size iletilen bağlantıyı kullanabilirsiniz. · ${esc(marka)}</p></div>`,
+  });
+}
+
+// IT, talebe MUSTERIYE GORUNUR yanit yazinca musteriyi haberdar et (server.js'ten).
+export async function musteriYanitBildir(db, { epostaAdres, baslik, talepId, marka = "Destek" }) {
+  const a = epostaAyarlari(db);
+  if (a.bildirim_musteri_durum !== "1") return { ok: false, atlandi: true };
+  if (!epostaAdres) return { ok: false, atlandi: true };
+  const esc = (s) => String(s ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+  return epostaGonder(db, {
+    kime: epostaAdres,
+    konu: `Talebinize yanıt geldi: ${baslik}`.slice(0, 180),
+    metin: `Merhaba,\n\n"${baslik}" başlıklı talebinize destek ekibimiz yanıt yazdı. Detay için size iletilen bağlantıyı kullanabilirsiniz.\n\n${marka}`,
+    html: `<div style="font-family:system-ui,Segoe UI,sans-serif;font-size:14px;color:#0F1420">
+      <p>Merhaba,</p>
+      <p>"<b>${esc(baslik)}</b>" başlıklı talebinize destek ekibimiz yanıt yazdı.</p>
+      <p style="color:#6B7896;font-size:12px">Detay için size iletilen bağlantıyı kullanabilirsiniz. · ${esc(marka)}</p></div>`,
   });
 }
 
