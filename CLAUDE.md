@@ -240,6 +240,26 @@ Ortam: `PORT` (varsayılan 8793), `BILGI_DB` (varsayılan `db/bilgi.sqlite`).
       görünür yanıtta **müşteriye e-posta** (`bildirim_musteri_durum`). eposta.js: `musteriMesajBildir`
       (IT'ye), `musteriDurumBildir`+`musteriYanitBildir` (müşteriye). KayitDetay'da "müşteriye görünür"
       anahtarı + müşteri/görünür rozetleri. Test 28/28; HTTP izolasyon (B→A 404), iç not sızmıyor.
+- [x] **Faz 13 — Talep yönlendirme + Dış Kişi + iç portal + e-posta→ticket + ilişki seçici.**
+    - **İlişki alanı form seçici** (ui.jsx `IliskiGirdi`): `iliski_tip`'teki kayıtları arar, seçilenin
+      **id**'sini saklar, etiketini rozetle gösterir. AlanGirdi 'iliski' artık bunu çizer (eskiden zayıf
+      ham giriş). KayitDetay'da ilişki alanı id yerine **etiket + tıklanabilir link** (`IliskiDeger`).
+      TÜM ilişki alanlarını (tedarikçi, kurulu cihaz, dış kaynak) iyileştirir.
+    - **Yeni tip `dis_kisi`** (Dış Kişi / Uzman 🧑‍🔧): firma/uzmanlık/email/telefon/notlar — tedarikçiden
+      AYRI harici uzman listesi. Menü "Kişiler & Destek".
+    - **Talep yönlendirme:** `hedef_tur` (İç IT Ekibi / Dış Kaynak) + `dis_kaynak` (ilişki→dis_kisi).
+      Dış Kaynak'a (yeni/değişmiş) yönlendirilince dış kişinin e-postasına talep detayı otomatik gider
+      (`disKaynakBildir`, server POST/PUT hook `disKaynakDene`). Ayar `bildirim_dis_kaynak`.
+    - **İç talep portalı** `/ic` (LAN, login'siz): server-render form (ad+konu+kategori+hedef+açıklama)
+      → talep (`kaynak=ic-portal`) + IT'ye bildirim. `/api` dışı → guard'a takılmaz; hız sınırı+honeypot.
+      `express.urlencoded` eklendi. **Guard bozulmadı** (login'siz /api hâlâ 401).
+    - **E-posta → ticket** (`posta-gelen.js`): `teknik@` gibi kutuyu **IMAP**'le (imapflow+mailparser,
+      DİNAMİK import) yoklar, okunmamışları talebe çevirir (`kaynak=eposta`), okundu işaretler. Döngü/
+      spam koruması (kendi adresimiz + auto-submitted/precedence/autoreply → talep AÇMAZ). Admin POST
+      `/api/posta/kontrol` (manuel). Zamanlayıcı ana süreçte 3dk (env `POSTA_ARALIK_DK`). ayarlar
+      `imap_*` (parola maskeli). **VARSAYILAN KAPALI**; canlı O365 testi Bilal'de (teknik@ + uygulama
+      parolası; O365'te IMAP açık olmalı). deps: imapflow ^1, mailparser ^3 (saf JS, 0 açık).
+      Test 29/29; e-posta→ticket graceful doğrulandı (canlı IMAP hariç). Sürüm **1.3.0 / yapım 13**.
 - [ ] **Kalan dağıtım:** SEMAK'a ilk kurulum + Cloudflare Tunnel (8795 yayın); ops: **otomatik yedek
       (SIRADA — Bilal 'veri çok kritik' dedi)**, Windows başlangıç servisi, (opsiyonel) tek `.exe`.
 - [ ] **Kararlaştırılan sonraki 4 (rakip ITSM analizi):** 1) E-posta ✅(Faz10) · 3) müşteri talep
@@ -248,5 +268,20 @@ Ortam: `PORT` (varsayılan 8793), `BILGI_DB` (varsayılan `db/bilgi.sqlite`).
 **Bilinen sınırlar:** müşteri "Müşteriler" yönetim ekranı henüz yok (CLI+API var); dışa aktarma yok;
 markdown/inline ekran görüntüsü render'ı yok (Faz 6 ile gelecek).
 
-**Portlar:** 8793 ana uygulama (LAN, girişli), 8795 intake (dışa açılabilir tek servis, tokenli), 5180 Vite dev.
+**Portlar:** 8793 ana uygulama (LAN, girişli; ayrıca `/ic` login'siz iç talep portalı), 8795 intake
+(dışa açılabilir tek servis, tokenli), 5180 Vite dev.
 **Varsayılan giriş:** admin / admin (ilk girişte değiştirilir).
+
+## SEMAK'ta güncelleme sonrası TEK-SEFERLİK ayarlar (Ayarlar ekranı, admin)
+Güncelleme akışı: `guncelle.bat` → `sunucu-baslat.bat`. Sonra Ayarlar'da:
+1. **Marka:** logoyu yükle + firma adını gir (logo artık gömülü değil, white-label).
+2. **SMTP (giden):** admin@semak.com.tr parolası + Test Gönder (O365 SMTP AUTH açık olmalı).
+3. **Yedekleme:** klasörü ikinci disk/ağ paylaşımına ayarla (`\\SUNUCU\yedek`), otomatik günlük aç, Şimdi Yedekle.
+4. **E-posta→ticket (IMAP, gelen):** teknik@ kutusu + (uygulama) parolası + Şimdi Kontrol Et (O365 IMAP açık olmalı). — **CANLI TEST BEKLİYOR (yarın).**
+5. **Bildirim hedefleri / anahtarlar** kontrol.
+
+## YARIN DEVAM (2026-07-11)
+- **E-posta→ticket canlı test** (teknik@ IMAP; imapflow API'si canlı O365'te doğrulanmadı — hata çıkarsa `posta-gelen.js` düzeltilecek).
+- **Kalan 2 (kararlaştırılan 4'ten):** SLA/talep zamanlaması · Dashboard + CSV/JSON export.
+- Cloudflare Tunnel (8795 müşteri portalı yayını) — Bilal ağ/domain.
+- (Sona) IT personeli için komple kullanım kılavuzu.
