@@ -260,6 +260,28 @@ Ortam: `PORT` (varsayılan 8793), `BILGI_DB` (varsayılan `db/bilgi.sqlite`).
       `imap_*` (parola maskeli). **VARSAYILAN KAPALI**; canlı O365 testi Bilal'de (teknik@ + uygulama
       parolası; O365'te IMAP açık olmalı). deps: imapflow ^1, mailparser ^3 (saf JS, 0 açık).
       Test 29/29; e-posta→ticket graceful doğrulandı (canlı IMAP hariç). Sürüm **1.3.0 / yapım 13**.
+- [x] **Faz 14 — 3 seviyeli yetki + bildirim genişletme + uyarı düzeltmeleri.** (Sürüm **1.4.0 / yapım 15**)
+    - **Yetki (rol izinleri):** `sunucu/izinler.js` — roller **admin | it | personel** (db `rolGecerli`).
+      İzin **MODÜL GRUBU** bazında (menüyle birebir: genel/envanter/alanssl/dokuman/destek/yonetim),
+      yalnız "erişir/erişemez". **admin** hepsi, **it** yönetim hariç hepsi (SABİT), **personel**
+      admin'in seçtiği içerik modülleri (ayarlar `izin_personel` JSON → **güncellemede korunur**;
+      varsayılan=hepsi, mevcut kurulumda daralma yok). Backend guard: kayıt oku/yaz/yorum/ilişki/
+      zimmet/ek uçlarında `kayitErisimGuard` (tip→modül); `ara` `tipler` süzgeci; istatistik/uyarılar
+      izinli tiplere göre süzülür (gizli modül başlıkları **sızmaz**). `/api/ben` + `/api/giris`
+      `izinModuller` döner → App menüyü + "Yeni" listesini süzer. Admin uçları GET/PUT `/api/roller/izin`.
+      UI: Kullanicilar'da rol seçici (3 rol) + **"Rol izinleri — Personel"** onay-kutu paneli. E2E doğrulandı
+      (personel destek→ticket erişir/donanım 403/aramada gizli; it envanter var/admin uçları 403).
+    - **Bildirim genişletme:** (2) IT dış-kaynağa yönlendirilmiş talebe **yorum** yazınca atanan dış
+      kişiye mail (`disKaynakYanitBildir`, yorum ucu hook). (3) Talebi **açana** (ic-portal/e-posta
+      kaynak, `veri.iletisim` e-posta ise) durum değişimi + görünür yanıt bildirimi (`talepAcanBildir`;
+      müşteri portalı olanlar eskisi gibi `musteri*Bildir`). Ayar `bildirim_talep_acan` (Ayarlar UI).
+    - **Uyarı düzeltmeleri:** (4) `uyarilar()` **kapatılmış** kayıtları atlar (alan adı Birakildi, SSL
+      Iptal/Yenilendi, lisans Iptal/Kullanilmiyor, sözleşme Feshedildi, hurda/kayıp garanti →
+      `UYARI_KAPALI_DURUMLAR`, Türkçe-normalize). (6) Uyarılar panosu artık **açık talepleri** de
+      listeler (durum Cozuldu/Kapandi/Reddedildi hariç → `talepler`); kenar çubuğu sayacına eklendi.
+      Test **33/33**.
+    - [ ] **Sırada:** dış kaynağın ticket'ı KAPATMA yolu yok (tokenlı dış-kaynak portalı / e-posta yanıt
+          / IT kapatır — **Bilal ile yöntem netleşecek**). SEMAK teknik@ hem SMTP hem IMAP kullanacak.
 - [ ] **Kalan dağıtım:** SEMAK'a ilk kurulum + Cloudflare Tunnel (8795 yayın); ops: **otomatik yedek
       (SIRADA — Bilal 'veri çok kritik' dedi)**, Windows başlangıç servisi, (opsiyonel) tek `.exe`.
 - [ ] **Kararlaştırılan sonraki 4 (rakip ITSM analizi):** 1) E-posta ✅(Faz10) · 3) müşteri talep
@@ -275,10 +297,11 @@ markdown/inline ekran görüntüsü render'ı yok (Faz 6 ile gelecek).
 ## SEMAK'ta güncelleme sonrası TEK-SEFERLİK ayarlar (Ayarlar ekranı, admin)
 Güncelleme akışı: `guncelle.bat` → `sunucu-baslat.bat`. Sonra Ayarlar'da:
 1. **Marka:** logoyu yükle + firma adını gir (logo artık gömülü değil, white-label).
-2. **SMTP (giden):** admin@semak.com.tr parolası + Test Gönder (O365 SMTP AUTH açık olmalı).
+2. **SMTP (giden):** **teknik@semak.com.tr** kullanıcı + (uygulama) parolası + Test Gönder (gönderen boş → teknik@; O365 SMTP AUTH açık olmalı).
 3. **Yedekleme:** klasörü ikinci disk/ağ paylaşımına ayarla (`\\SUNUCU\yedek`), otomatik günlük aç, Şimdi Yedekle.
-4. **E-posta→ticket (IMAP, gelen):** teknik@ kutusu + (uygulama) parolası + Şimdi Kontrol Et (O365 IMAP açık olmalı). — **CANLI TEST BEKLİYOR (yarın).**
-5. **Bildirim hedefleri / anahtarlar** kontrol.
+4. **E-posta→ticket (IMAP, gelen):** **teknik@semak.com.tr** kutusu + (uygulama) parolası + Şimdi Kontrol Et (O365 IMAP açık olmalı). — **CANLI TEST BEKLİYOR.**
+5. **Bildirim hedefleri / anahtarlar** kontrol (dış kaynak, talebi açan, müşteri durum).
+6. **Rol izinleri:** Kullanıcılar ekranından personel rolünün erişeceği modülleri seç (varsayılan hepsi açık).
 
 ## YARIN DEVAM (2026-07-11)
 - **E-posta→ticket canlı test** (teknik@ IMAP; imapflow API'si canlı O365'te doğrulanmadı — hata çıkarsa `posta-gelen.js` düzeltilecek).

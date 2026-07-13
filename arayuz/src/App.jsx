@@ -13,13 +13,14 @@ import Ayarlar from "./Ayarlar.jsx";
 import { LISTE_KOLON } from "./modul.js";
 
 // Sol menu gruplari (FortiGate tarzi acilir-kapanir). tipler API'den gelir; burada gruplanir.
+// mod = backend izin modülü anahtarı (sunucu/izinler.js). Rol izni bu anahtara göre filtreler.
 const MENU_GRUPLARI = [
-  { baslik: "Genel", ikon: "📊", ozel: ["tumu", "uyarilar"] },
-  { baslik: "Envanter", ikon: "🗄️", tipler: ["donanim", "yazilim", "lisans", "ag"] },
-  { baslik: "Alan Adı & SSL", ikon: "🌍", tipler: ["alan_adi", "ssl"] },
-  { baslik: "Dokümantasyon", ikon: "📚", tipler: ["sistem", "surec", "revizyon", "bilgi"] },
-  { baslik: "Kişiler & Destek", ikon: "🤝", tipler: ["personel", "talep", "tedarikci", "dis_kisi", "sozlesme"] },
-  { baslik: "Yönetim", ikon: "⚙️", ozel: ["kullanicilar", "ayarlar"], adminGerek: true },
+  { baslik: "Genel", ikon: "📊", mod: "genel", ozel: ["tumu", "uyarilar"] },
+  { baslik: "Envanter", ikon: "🗄️", mod: "envanter", tipler: ["donanim", "yazilim", "lisans", "ag"] },
+  { baslik: "Alan Adı & SSL", ikon: "🌍", mod: "alanssl", tipler: ["alan_adi", "ssl"] },
+  { baslik: "Dokümantasyon", ikon: "📚", mod: "dokuman", tipler: ["sistem", "surec", "revizyon", "bilgi"] },
+  { baslik: "Kişiler & Destek", ikon: "🤝", mod: "destek", tipler: ["personel", "talep", "tedarikci", "dis_kisi", "sozlesme"] },
+  { baslik: "Yönetim", ikon: "⚙️", mod: "yonetim", ozel: ["kullanicilar", "ayarlar"], adminGerek: true },
 ];
 
 export default function App() {
@@ -48,6 +49,13 @@ export default function App() {
 
   const tipMeta = useMemo(() => Object.fromEntries(tipler.map((t) => [t.kod, t])), [tipler]);
   const aktifTipMeta = tipler.find((t) => t.kod === aktifTip);
+  // Rol izniyle erişilebilir tip kümesi (null → hepsi, geriye uyumlu). Menü/yeni-kayıt süzgeci.
+  const izinliTipSet = useMemo(() => {
+    if (!ben?.izinModuller) return null;
+    const s = new Set();
+    for (const g of MENU_GRUPLARI) if (g.tipler && ben.izinModuller.includes(g.mod)) g.tipler.forEach((k) => s.add(k));
+    return s;
+  }, [ben]);
 
   // Oturum kontrolu (acilista)
   useEffect(() => {
@@ -75,7 +83,7 @@ export default function App() {
   }
   const panoYenile = () => {
     api.istatistik().then(setIst).catch(() => {});
-    api.uyarilar(45).then((u) => setUyariSayi((u.gecmis?.length || 0) + (u.yakin?.length || 0))).catch(() => {});
+    api.uyarilar(45).then((u) => setUyariSayi((u.gecmis?.length || 0) + (u.yakin?.length || 0) + (u.talepler?.length || 0))).catch(() => {});
   };
 
   // arama (debounce)
@@ -120,6 +128,8 @@ export default function App() {
   // Hicbir grupta olmayan tipler (ileride eklenirse) → "Diger"
   const kapsanan = new Set(MENU_GRUPLARI.flatMap((g) => g.tipler || []));
   const digerTipler = tipler.filter((t) => !kapsanan.has(t.kod)).map((t) => t.kod);
+  // Bu tipe erişim/oluşturma izni var mı? (gruba dahil değilse serbest — geriye uyumlu)
+  const tipIzinli = (kod) => !izinliTipSet || izinliTipSet.has(kod) || !kapsanan.has(kod);
 
   function yeniAc(tipKod) { setFormTip(tipKod); setFormMevcut(null); setYeniMenu(false); setGorunum("form"); }
   function duzenleAc(kayit) { setFormTip(kayit.tip); setFormMevcut(kayit); setGorunum("form"); }
@@ -188,7 +198,7 @@ export default function App() {
           {yeniMenu && (
             <div style={{ position: "absolute", right: 0, top: 46, background: PAL.surface, border: `1px solid ${PAL.cizgi2}`, borderRadius: 12, padding: 6, minWidth: 200, zIndex: 30, boxShadow: "0 12px 40px rgba(0,0,0,.5)" }}>
               <div style={{ fontSize: 11, color: PAL.soluk2, padding: "4px 11px 6px", textTransform: "uppercase", letterSpacing: 0.5 }}>Yeni kayıt tipi</div>
-              {tipler.map((t) => (
+              {tipler.filter((t) => tipIzinli(t.kod)).map((t) => (
                 <div key={t.kod} onClick={() => yeniAc(t.kod)} style={{ padding: "9px 11px", borderRadius: 8, cursor: "pointer", display: "flex", gap: 9, alignItems: "center", fontSize: 14 }}
                   onMouseEnter={(e) => e.currentTarget.style.background = PAL.surface2}
                   onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
@@ -226,6 +236,8 @@ export default function App() {
         <aside style={{ width: 236, borderRight: `1px solid ${PAL.cizgi}`, padding: "12px 12px", background: PAL.bg2, flexShrink: 0, overflowY: "auto" }}>
           {MENU_GRUPLARI.map((grup) => {
             if (grup.adminGerek && ben.rol !== "admin") return null;
+            // Rol izni: bu modüle erişim yoksa gizle (izinModuller yoksa geriye-uyumlu: hepsi açık)
+            if (grup.mod && ben.izinModuller && !ben.izinModuller.includes(grup.mod)) return null;
             const cocuklar = grupCocuklari(grup);
             if (cocuklar.length === 0) return null;
             return (

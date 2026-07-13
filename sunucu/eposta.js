@@ -15,7 +15,8 @@ const VARSAYILAN = {
   bildirim_aktif: "1",           // ana anahtar
   bildirim_yeni_talep: "1",      // yeni musteri talebi / musteri yaniti gelince IT'ye mail
   bildirim_musteri_durum: "1",   // talep durumu degisince MUSTERIYE mail
-  bildirim_dis_kaynak: "1",      // talep dis kaynaga yonlendirilince DIS KISIYE mail
+  bildirim_dis_kaynak: "1",      // talep dis kaynaga yonlendirilince / not eklenince DIS KISIYE mail
+  bildirim_talep_acan: "1",      // talebi ACAN kisiye (ic-portal/e-posta kaynakli) durum/yanit bildirimi
 };
 
 export function epostaAyarlari(db) {
@@ -161,6 +162,45 @@ export async function disKaynakBildir(db, { epostaAdres, baslik, aciklama, talep
       <p><b>${esc(baslik)}</b> <span style="color:#6B7896">(#${esc(talepId)})</span></p>
       <p style="white-space:pre-wrap">${esc(aciklama) || ""}</p>
       <p style="color:#6B7896;font-size:12px;margin-top:14px">${esc(marka)}</p></div>`,
+  });
+}
+
+// IT, DIS KAYNAGA yonlendirilmis talebe yorum/not yazinca dis kisiyi haberdar et (server.js'ten).
+export async function disKaynakYanitBildir(db, { epostaAdres, baslik, yorum, talepId, marka = "Destek" }) {
+  const a = epostaAyarlari(db);
+  if (a.bildirim_dis_kaynak !== "1") return { ok: false, atlandi: true };
+  if (!epostaAdres) return { ok: false, atlandi: true, neden: "dis kisi e-postasi yok" };
+  const esc = (s) => String(s ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+  return epostaGonder(db, {
+    kime: epostaAdres,
+    konu: `Yönlendirilen talebe not eklendi: ${baslik}`.slice(0, 180),
+    metin: `Merhaba,\n\nTarafınıza yönlendirilen "${baslik}" (#${talepId}) talebine yeni bir not eklendi:\n\n${yorum || ""}\n\n${marka}`,
+    html: `<div style="font-family:system-ui,Segoe UI,sans-serif;font-size:14px;color:#0F1420">
+      <p>Merhaba,</p>
+      <p>Tarafınıza yönlendirilen "<b>${esc(baslik)}</b>" <span style="color:#6B7896">(#${esc(talepId)})</span> talebine yeni bir not eklendi:</p>
+      <p style="white-space:pre-wrap;background:#F3F5F9;border-radius:8px;padding:10px">${esc(yorum) || ""}</p>
+      <p style="color:#6B7896;font-size:12px;margin-top:12px">${esc(marka)}</p></div>`,
+  });
+}
+
+// Talebi ACAN kisiye (ic-portal/e-posta kaynakli, musteri portali disindaki) durum/yanit bildirimi (server.js'ten).
+export async function talepAcanBildir(db, { epostaAdres, baslik, talepId, durum = null, yanit = false, marka = "Destek" }) {
+  const a = epostaAyarlari(db);
+  if (a.bildirim_talep_acan !== "1") return { ok: false, atlandi: true };
+  if (!epostaAdres) return { ok: false, atlandi: true, neden: "acan e-postasi yok" };
+  const esc = (s) => String(s ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+  const konu = yanit ? `Talebinize yanıt geldi: ${baslik}` : `Talebinizin durumu güncellendi: ${durum}`;
+  const govde = yanit
+    ? `"${baslik}" (#${talepId}) başlıklı talebinize IT ekibimiz yanıt yazdı.`
+    : `"${baslik}" (#${talepId}) başlıklı talebinizin durumu: ${durum}`;
+  return epostaGonder(db, {
+    kime: epostaAdres,
+    konu: konu.slice(0, 180),
+    metin: `Merhaba,\n\n${govde}\n\n${marka}`,
+    html: `<div style="font-family:system-ui,Segoe UI,sans-serif;font-size:14px;color:#0F1420">
+      <p>Merhaba,</p>
+      <p>${esc(govde)}</p>
+      <p style="color:#6B7896;font-size:12px;margin-top:12px">${esc(marka)}</p></div>`,
   });
 }
 

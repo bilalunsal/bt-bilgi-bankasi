@@ -17,10 +17,11 @@ import {
   zimmetAta, zimmetIade, zimmetAktif, zimmetGecmisi, personelZimmetleri,
   ayarGetir, ayarKur, ayarlariGetir, ayarlariKaydet, musteriGetir,
 } from "./db.js";
-import { epostaTest, musteriDurumBildir, musteriYanitBildir, disKaynakBildir, yeniTalepBildir } from "./eposta.js";
+import { epostaTest, musteriDurumBildir, musteriYanitBildir, disKaynakBildir, disKaynakYanitBildir, talepAcanBildir, yeniTalepBildir } from "./eposta.js";
 import { postaKontrol, postaKontrolDene } from "./posta-gelen.js";
 import { yedekConfig, yedekAl, yedekListe, otomatikYedekDene, YEDEK_ADI_DESEN } from "./yedek.js";
 import { ILISKI_TURLERI, ZIMMETLENEBILIR } from "./tohum-alanlar.js";
+import { MODULLER, ROLLER, ICERIK_MODULLERI, tipModulu, izinliModuller, izinliTipler, personelIzinCoz } from "./izinler.js";
 
 // Ayarlarda gizli/parola alanlari — istemciye ASLA duz gonderilmez (yalniz "var mi" bilgisi).
 const GIZLI_AYAR = new Set(["smtp_parola", "imap_parola"]);
@@ -74,18 +75,36 @@ const adminGerek = (req, res) => {
   return true;
 };
 
+// ── Yetki (modül grubu bazında; ayarlar.izin_personel personel iznini tutar) ──
+function personelIzinListe() { return personelIzinCoz(ayarGetir(db, "izin_personel", null)); }
+function kullaniciModulSeti(k) { return izinliModuller(k?.rol, personelIzinListe()); }
+function kullaniciTipSeti(k)   { return izinliTipler(kullaniciModulSeti(k)); }
+// Bir kayıt tipine erişim var mı? Modülsüz tip → kısıtlama yok (true).
+function tipErisebilir(k, tip) {
+  const mk = tipModulu(tip);
+  return mk ? kullaniciModulSeti(k).has(mk) : true;
+}
+// Kayıt uçlarında ortak koruma: id'yi çöz, tipine erişim yoksa 403 (kayıt yoksa 404). Erişim varsa kaydı döndürür.
+function kayitErisimGuard(req, res, id) {
+  const k = kayitGetir(db, id);
+  if (!k) { res.status(404).json({ hata: "Kayit bulunamadi" }); return null; }
+  if (!tipErisebilir(req.kullanici, k.tip)) { res.status(403).json({ hata: "Bu kayıt türüne erişim izniniz yok" }); return null; }
+  return k;
+}
+
 app.post("/api/giris", sarmala((req, res) => {
   const { kadi, parola } = req.body || {};
   const s = girisDene(db, kadi, parola);
   if (!s) return res.status(401).json({ hata: "Kullanıcı adı veya parola hatalı" });
   cerezYaz(res, s.token);
-  res.json({ kullanici: s.kullanici });
+  res.json({ kullanici: { ...s.kullanici, izinModuller: Array.from(kullaniciModulSeti(s.kullanici)) } });
 }));
 app.post("/api/cikis", sarmala((req, res) => { oturumKapat(db, cerezToken(req)); cerezSil(res); res.json({ ok: true }); }));
 app.get("/api/ben", sarmala((req, res) => {
   const k = oturumKullanici(db, cerezToken(req));
   if (!k) return res.status(401).json({ hata: "Oturum yok" });
-  res.json({ kullanici: k });
+  // Arayüz menüsünü/erişimini rol iznine göre çizsin diye izinli modül anahtarlarını da gönder.
+  res.json({ kullanici: { ...k, izinModuller: Array.from(kullaniciModulSeti(k)) } });
 }));
 // Kendi parolasini degistir
 app.post("/api/parola", sarmala((req, res) => {
@@ -122,6 +141,25 @@ app.post("/api/kullanicilar/:id/rol", sarmala((req, res) => {
   res.json({ ok: kullaniciRol(db, Number(req.params.id), (req.body || {}).rol) });
 }));
 
+// ── Rol izinleri (yalnizca admin) — modül grubu bazında; yalnız PERSONEL yapılandırılabilir ──
+app.get("/api/roller/izin", sarmala((req, res) => {
+  if (!adminGerek(req, res)) return;
+  res.json({
+    moduller: MODULLER.map((m) => ({ anahtar: m.anahtar, baslik: m.baslik, tipler: m.tipler })),
+    icerikModulleri: ICERIK_MODULLERI, // personel için açılıp kapanan modüller
+    roller: ROLLER,
+    izin_personel: personelIzinCoz(ayarGetir(db, "izin_personel", null)) ?? ICERIK_MODULLERI, // null → varsayılan (hepsi)
+  });
+}));
+app.put("/api/roller/izin", sarmala((req, res) => {
+  if (!adminGerek(req, res)) return;
+  const g = req.body || {};
+  if (!Array.isArray(g.izin_personel)) return res.status(400).json({ hata: "izin_personel dizi olmalı" });
+  const temiz = g.izin_personel.filter((k) => ICERIK_MODULLERI.includes(k));
+  ayarKur(db, "izin_personel", JSON.stringify(temiz));
+  res.json({ ok: true, izin_personel: temiz });
+}));
+
 // ── Ayarlar (yalnizca admin) — SMTP / e-posta bildirim ───────────────────────
 // GET: parola alanlari MASKELENIR (smtp_parola_var: true/false doner, deger gitmez).
 app.get("/api/ayarlar", sarmala((req, res) => {
@@ -140,7 +178,7 @@ app.put("/api/ayarlar", sarmala((req, res) => {
   const g = req.body || {};
   const yaz = {};
   const IZIN = ["smtp_host", "smtp_port", "smtp_kullanici", "smtp_gonderen",
-    "bildirim_hedef", "bildirim_aktif", "bildirim_yeni_talep", "bildirim_musteri_durum", "bildirim_dis_kaynak",
+    "bildirim_hedef", "bildirim_aktif", "bildirim_yeni_talep", "bildirim_musteri_durum", "bildirim_dis_kaynak", "bildirim_talep_acan",
     "marka_ad", "marka_tam",
     "yedek_aktif", "yedek_klasor", "yedek_tut",
     "imap_aktif", "imap_host", "imap_port", "imap_kullanici", "imap_klasor"];
@@ -250,10 +288,28 @@ app.get("/api/tipler", sarmala((_req, res) => {
 app.get("/api/alanlar", sarmala((req, res) => {
   res.json(alanTanimlari(db, req.query.tip || null));
 }));
-app.get("/api/istatistik", sarmala((_req, res) => res.json(istatistik(db))));
+app.get("/api/istatistik", sarmala((req, res) => {
+  const s = istatistik(db);
+  if (req.kullanici?.rol === "admin") return res.json(s);
+  const izinli = kullaniciTipSeti(req.kullanici); // yalnız erişilebilir tiplerin sayımı
+  const tipBazli = s.tipBazli.filter((r) => izinli.has(r.tip));
+  res.json({
+    toplam: tipBazli.reduce((a, r) => a + Number(r.n), 0),
+    tipBazli,
+    durumBazli: s.durumBazli.filter((r) => izinli.has(r.tip)),
+  });
+}));
 app.get("/api/uyarilar", sarmala((req, res) => {
   const gun = Math.max(1, Math.min(Number(req.query.gun) || 45, 365));
-  res.json(uyarilar(db, { gun }));
+  const u = uyarilar(db, { gun });
+  if (req.kullanici?.rol === "admin") return res.json(u);
+  const izinli = kullaniciTipSeti(req.kullanici); // erişilemeyen tiplerin başlıkları sızmasın
+  res.json({
+    ...u,
+    gecmis: u.gecmis.filter((x) => izinli.has(x.tip)),
+    yakin: u.yakin.filter((x) => izinli.has(x.tip)),
+    talepler: (u.talepler || []).filter((x) => izinli.has(x.tip)),
+  });
 }));
 
 // ── Arama / liste ─────────────────────────────────────────────────────────
@@ -261,13 +317,15 @@ app.get("/api/ara", sarmala((req, res) => {
   const { q = "", tip = null, durum = null } = req.query;
   const limit = Math.min(Number(req.query.limit) || 50, 200);
   const offset = Number(req.query.offset) || 0;
-  res.json(ara(db, { q, tip, durum, limit, offset }));
+  // Admin harici: yalnız izinli tipler döner (menüde gizli modüllerin kayıtları aramaya düşmesin).
+  const tipler = req.kullanici?.rol === "admin" ? null : Array.from(kullaniciTipSeti(req.kullanici));
+  res.json(ara(db, { q, tip, durum, tipler, limit, offset }));
 }));
 
 // ── Kayit CRUD ──────────────────────────────────────────────────────────────
 app.get("/api/kayit/:id", sarmala((req, res) => {
-  const k = kayitGetir(db, Number(req.params.id));
-  if (!k) return res.status(404).json({ hata: "Kayit bulunamadi" });
+  const k = kayitErisimGuard(req, res, Number(req.params.id));
+  if (!k) return;
   const cikti = {
     ...k,
     yorumlar: yorumlar(db, k.id),
@@ -283,6 +341,17 @@ app.get("/api/kayit/:id", sarmala((req, res) => {
   }
   res.json(cikti);
 }));
+// Talebi ACAN kisinin e-postasi (musteri portali DISI: ic-portal/e-posta kaynak). iletisim alani e-posta ise onu dondur.
+function talepAcanEposta(k) {
+  if (k?.tip !== "talep") return null;
+  const il = String(k.veri?.iletisim || "").trim();
+  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(il) ? il : null;
+}
+// Talebe atanmis dis kisinin e-postasi (dis_kaynak ilişkisinden).
+function disKaynakEposta(k) {
+  if (k?.tip !== "talep" || k.veri?.hedef_tur !== "Dış Kaynak" || !k.veri?.dis_kaynak) return null;
+  return kayitGetir(db, k.veri.dis_kaynak)?.veri?.email || null;
+}
 // Talep DIS KAYNAGA yonlendirilmisse (hedef_tur=Dış Kaynak + dis_kaynak yeni/degismis) dis kisiye mail.
 function disKaynakDene(guncel, oncekiDisId) {
   if (guncel?.tip !== "talep") return;
@@ -300,6 +369,7 @@ function disKaynakDene(guncel, oncekiDisId) {
 app.post("/api/kayit", sarmala((req, res) => {
   const g = req.body || {};
   if (!g.tip || !g.baslik) return res.status(400).json({ hata: "tip ve baslik zorunlu" });
+  if (!tipErisebilir(req.kullanici, g.tip)) return res.status(403).json({ hata: "Bu kayıt türünü ekleme izniniz yok" });
   const id = kayitEkle(db, g);
   const yeni = kayitGetir(db, id);
   disKaynakDene(yeni, null);
@@ -307,27 +377,35 @@ app.post("/api/kayit", sarmala((req, res) => {
 }));
 app.put("/api/kayit/:id", sarmala((req, res) => {
   const id = Number(req.params.id);
-  const onceki = kayitGetir(db, id); // durum degisimini yakalamak icin
+  const onceki = kayitErisimGuard(req, res, id); // 404/403 + durum degisimini yakalamak icin
+  if (!onceki) return;
+  if (req.body?.tip && !tipErisebilir(req.kullanici, req.body.tip)) return res.status(403).json({ hata: "Bu kayıt türüne erişim izniniz yok" });
   const ok = kayitGuncelle(db, id, req.body || {});
   if (!ok) return res.status(404).json({ hata: "Kayit bulunamadi" });
   const guncel = kayitGetir(db, id);
   // Talep dis kaynaga (yeni/degismis) yonlendirildiyse dis kisiye mail.
   disKaynakDene(guncel, onceki?.veri?.dis_kaynak);
-  // Talep durumu degistiyse MUSTERIYE bildirim (varsa e-posta). Ana akisi bloklamaz.
+  // Talep durumu degistiyse ACANA bildirim: musteri portali (musteri_id) → musteriDurumBildir,
+  // yoksa ic-portal/e-posta kaynak acan e-postasi → talepAcanBildir. Ana akisi bloklamaz.
   if (onceki && guncel && guncel.tip === "talep" && onceki.durum !== guncel.durum) {
+    const marka = ayarGetir(db, "marka_tam", "Destek");
     const mid = guncel.veri?.musteri_id;
     if (mid) {
       const m = musteriGetir(db, mid);
-      if (m?.eposta) {
-        musteriDurumBildir(db, { epostaAdres: m.eposta, baslik: guncel.baslik, durum: guncel.durum, talepId: id, marka: ayarGetir(db, "marka_tam", "Destek") })
-          .catch((e) => console.error("[durum bildirimi]", e.message));
-      }
+      if (m?.eposta) musteriDurumBildir(db, { epostaAdres: m.eposta, baslik: guncel.baslik, durum: guncel.durum, talepId: id, marka })
+        .catch((e) => console.error("[durum bildirimi]", e.message));
+    } else {
+      const acan = talepAcanEposta(guncel);
+      if (acan) talepAcanBildir(db, { epostaAdres: acan, baslik: guncel.baslik, durum: guncel.durum, talepId: id, marka })
+        .catch((e) => console.error("[acan durum bildirimi]", e.message));
     }
   }
   res.json(guncel);
 }));
 app.delete("/api/kayit/:id", sarmala((req, res) => {
-  res.json({ silindi: kayitSil(db, Number(req.params.id)) });
+  const id = Number(req.params.id);
+  if (!kayitErisimGuard(req, res, id)) return;
+  res.json({ silindi: kayitSil(db, id) });
 }));
 
 // ── Yorum / iliski ──────────────────────────────────────────────────────────
@@ -335,17 +413,28 @@ app.post("/api/kayit/:id/yorum", sarmala((req, res) => {
   const { metin, gorunur } = req.body || {};
   if (!metin) return res.status(400).json({ hata: "metin zorunlu" });
   const kayitId = Number(req.params.id);
+  const kayit = kayitErisimGuard(req, res, kayitId);
+  if (!kayit) return;
   const yazar = req.kullanici?.ad || req.kullanici?.kadi || "personel";
   const gor = gorunur ? 1 : 0;
   const id = yorumEkle(db, kayitId, { metin, yazar, gorunur: gor, yazar_tip: "personel" });
-  // Musteriye gorunur yanit + talep + musteri e-postasi varsa musteriyi haberdar et.
-  if (gor) {
-    const k = kayitGetir(db, kayitId);
-    const mid = k?.tip === "talep" ? k.veri?.musteri_id : null;
+  const k = kayit;
+  const marka = ayarGetir(db, "marka_tam", "Destek");
+  // 1) Talep DIS KAYNAGA yonlendirilmisse, yeni not eklenince atanan dis kisiyi haberdar et (gorunur olsun/olmasin).
+  const disEposta = disKaynakEposta(k);
+  if (disEposta) disKaynakYanitBildir(db, { epostaAdres: disEposta, baslik: k.baslik, yorum: metin, talepId: kayitId, marka })
+    .catch((e) => console.error("[dis kaynak not bildirimi]", e.message));
+  // 2) Musteriye GORUNUR yanit → talebi acani haberdar et: musteri portali (musteri_id) veya ic-portal/e-posta acani.
+  if (gor && k?.tip === "talep") {
+    const mid = k.veri?.musteri_id;
     if (mid) {
       const m = musteriGetir(db, mid);
-      if (m?.eposta) musteriYanitBildir(db, { epostaAdres: m.eposta, baslik: k.baslik, talepId: kayitId, marka: ayarGetir(db, "marka_tam", "Destek") })
+      if (m?.eposta) musteriYanitBildir(db, { epostaAdres: m.eposta, baslik: k.baslik, talepId: kayitId, marka })
         .catch((e) => console.error("[yanit bildirimi]", e.message));
+    } else {
+      const acan = talepAcanEposta(k);
+      if (acan) talepAcanBildir(db, { epostaAdres: acan, baslik: k.baslik, talepId: kayitId, yanit: true, marka })
+        .catch((e) => console.error("[acan yanit bildirimi]", e.message));
     }
   }
   res.status(201).json({ id, yorumlar: yorumlar(db, kayitId) });
@@ -353,6 +442,7 @@ app.post("/api/kayit/:id/yorum", sarmala((req, res) => {
 app.post("/api/kayit/:id/iliski", sarmala((req, res) => {
   const { hedef_id, tur } = req.body || {};
   if (!hedef_id || !tur) return res.status(400).json({ hata: "hedef_id ve tur zorunlu" });
+  if (!kayitErisimGuard(req, res, Number(req.params.id))) return;
   iliskiEkle(db, Number(req.params.id), Number(hedef_id), tur);
   res.status(201).json({ iliskiler: iliskilerGetir(db, Number(req.params.id)) });
 }));
@@ -364,6 +454,7 @@ app.delete("/api/iliski/:id", sarmala((req, res) => {
 app.post("/api/kayit/:id/zimmet", sarmala((req, res) => {
   const { personel_id, not: not_ } = req.body || {};
   if (!personel_id) return res.status(400).json({ hata: "personel_id zorunlu" });
+  if (!kayitErisimGuard(req, res, Number(req.params.id))) return;
   const atayan = req.kullanici?.ad || req.kullanici?.kadi || null;
   try {
     zimmetAta(db, { kayitId: Number(req.params.id), personelId: Number(personel_id), atayan, not_: not_ || null });
@@ -371,6 +462,7 @@ app.post("/api/kayit/:id/zimmet", sarmala((req, res) => {
   } catch (e) { res.status(400).json({ hata: e.message }); }
 }));
 app.post("/api/kayit/:id/iade", sarmala((req, res) => {
+  if (!kayitErisimGuard(req, res, Number(req.params.id))) return;
   const atayan = req.kullanici?.ad || req.kullanici?.kadi || null;
   const ok = zimmetIade(db, { kayitId: Number(req.params.id), atayan, not_: (req.body || {}).not || null });
   res.json({ iade: ok, zimmet: { aktif: null, gecmis: zimmetGecmisi(db, Number(req.params.id)) } });
@@ -379,7 +471,7 @@ app.post("/api/kayit/:id/iade", sarmala((req, res) => {
 // ── Ekler (dosya: base64 govde → disk) ────────────────────────────────────────
 app.post("/api/kayit/:id/ek", sarmala((req, res) => {
   const kayitId = Number(req.params.id);
-  if (!kayitGetir(db, kayitId)) return res.status(404).json({ hata: "Kayit bulunamadi" });
+  if (!kayitErisimGuard(req, res, kayitId)) return;
   let { dosya_ad, tur, veri_b64, yukleyen } = req.body || {};
   if (!dosya_ad || !veri_b64) return res.status(400).json({ hata: "dosya_ad ve veri_b64 zorunlu" });
   const b64 = String(veri_b64).replace(/^data:[^;]*;base64,/, "");
@@ -399,11 +491,14 @@ app.post("/api/kayit/:id/ek", sarmala((req, res) => {
 app.get("/api/ek/:id", sarmala((req, res) => {
   const ek = ekGetir(db, Number(req.params.id));
   if (!ek) return res.status(404).json({ hata: "Ek bulunamadi" });
+  if (!kayitErisimGuard(req, res, ek.kayit_id)) return; // bağlı kaydın türüne erişim yoksa 403/404
   const tam = resolve(EKLER_DIR, ek.yol);
   if (!tam.startsWith(resolve(EKLER_DIR)) || !existsSync(tam)) return res.status(404).json({ hata: "Dosya yok" });
   res.download(tam, ek.dosya_ad);
 }));
 app.delete("/api/ek/:id", sarmala((req, res) => {
+  const mevcut = ekGetir(db, Number(req.params.id));
+  if (mevcut && !kayitErisimGuard(req, res, mevcut.kayit_id)) return;
   const ek = ekSil(db, Number(req.params.id));
   if (ek) {
     const tam = resolve(EKLER_DIR, ek.yol);

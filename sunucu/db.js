@@ -6,6 +6,7 @@ import { existsSync, mkdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { TIPLER, ALANLAR } from "./tohum-alanlar.js";
+import { rolGecerli } from "./izinler.js";
 
 // pkg/.exe'de import.meta.url bos kalabilir → META_URL yardimcisi (Strateji Masasi tuzagi #2).
 const META_URL = (typeof __dirname !== "undefined") ? pathToFileURL(__dirname + "/").href : import.meta.url;
@@ -163,7 +164,7 @@ function semaKur(db) {
       kadi          TEXT NOT NULL UNIQUE,
       ad            TEXT,
       parola        TEXT NOT NULL,            -- "salt:hash"
-      rol           TEXT NOT NULL DEFAULT 'personel',  -- admin | personel
+      rol           TEXT NOT NULL DEFAULT 'personel',  -- admin | it | personel
       aktif         INTEGER NOT NULL DEFAULT 1,
       sifre_yenile  INTEGER NOT NULL DEFAULT 0,  -- 1 ise ilk giriste parola degistirmesi istenir
       olusturma     TEXT NOT NULL,
@@ -359,11 +360,17 @@ export function kayitSil(db, id) {
 }
 
 // Tam metin arama + tip/durum suzgeci. Sorgu bossa son kayitlar doner.
-export function ara(db, { q = "", tip = null, durum = null, limit = 50, offset = 0 } = {}) {
+export function ara(db, { q = "", tip = null, durum = null, tipler = null, limit = 50, offset = 0 } = {}) {
   const ifade = aramaIfadesi(q);
   const kosul = [], par = [];
   if (tip)   { kosul.push("k.tip = ?");   par.push(tip); }
   if (durum) { kosul.push("k.durum = ?"); par.push(durum); }
+  // Yetki suzgeci: yalniz izinli tipler (null → suzme yok). Bos dizi → hicbir kayit.
+  if (Array.isArray(tipler)) {
+    if (tipler.length === 0) return [];
+    kosul.push(`k.tip IN (${tipler.map(() => "?").join(",")})`);
+    par.push(...tipler);
+  }
 
   if (ifade) {
     const nerede = kosul.length ? "AND " + kosul.join(" AND ") : "";
@@ -456,6 +463,15 @@ const UYARI_ALANLARI = [
   { tip: "alan_adi", alan: "bitis",        etiket: "Alan Adı" },
   { tip: "ssl",      alan: "bitis",        etiket: "SSL" },
 ];
+// Yenileme/takip GEREKTIRMEYEN (kapatilmis/vazgecilmis/yenilenmis) durumlar → uyari URETME
+// (orn. alan adi "Birakildi", SSL "Iptal"/"Yenilendi", lisans "Iptal"/"Kullanilmiyor", sozlesme "Feshedildi",
+//  hurda/kayip donanim garantisi). Turkce buyuk/kucuk + aksan duyarsiz karsilastirma icin normalize edilir.
+const durumNorm = (s) => String(s ?? "").normalize("NFKD").replace(/[̀-ͯ]/g, "").toLocaleLowerCase("tr").trim();
+const UYARI_KAPALI_DURUMLAR = new Set(
+  ["Birakildi", "Iptal", "Feshedildi", "Yenilendi", "Kullanilmiyor", "Transfer", "Hurda", "Kayip"].map(durumNorm)
+);
+// Kapanmis talep durumlari → "acik talep" uyarisina dusmez.
+const TALEP_KAPALI_DURUMLAR = new Set(["Cozuldu", "Kapandi", "Reddedildi"].map(durumNorm));
 export function uyarilar(db, { gun = 45, bugun = null } = {}) {
   const bugunISO = (bugun || new Date().toISOString().slice(0, 10));
   const cikti = [];
@@ -466,6 +482,7 @@ export function uyarilar(db, { gun = 45, bugun = null } = {}) {
        WHERE tip = ? AND arsiv = 0 AND tarih IS NOT NULL AND tarih != ''`
     ).all(u.alan, u.tip);
     for (const s of satirlar) {
+      if (UYARI_KAPALI_DURUMLAR.has(durumNorm(s.durum))) continue; // yenileme iptal/birakilmis → uyari yok
       const kalan = gunFarki(bugunISO, s.tarih);
       if (kalan == null) continue;
       cikti.push({ ...s, kategori: u.etiket, kalanGun: kalan,
@@ -473,10 +490,15 @@ export function uyarilar(db, { gun = 45, bugun = null } = {}) {
     }
   }
   const ilgili = cikti.filter(c => c.durumSinif !== "uzak").sort((a, b) => a.kalanGun - b.kalanGun);
+  // Acik talepler (durum Cozuldu/Kapandi/Reddedildi DEGIL) — uyari panosunda "yapilacak" olarak gosterilir.
+  const acikTalepler = db.prepare(
+    "SELECT id, tip, baslik, durum, atanan, oncelik, guncelleme FROM kayitlar WHERE tip = 'talep' AND arsiv = 0 ORDER BY guncelleme DESC"
+  ).all().filter((t) => !TALEP_KAPALI_DURUMLAR.has(durumNorm(t.durum)));
   return {
     bugun: bugunISO, esik: gun,
     gecmis: ilgili.filter(c => c.durumSinif === "gecti"),
     yakin: ilgili.filter(c => c.durumSinif === "yakin"),
+    talepler: acikTalepler,
   };
 }
 function gunFarki(bugunISO, hedefISO) {
@@ -609,7 +631,7 @@ export function kullaniciEkle(db, { kadi, ad = null, parola, rol = "personel" })
   if (kullaniciBulKadi(db, k)) throw new Error("Bu kullanıcı adı zaten var");
   const r = db.prepare(
     "INSERT INTO kullanicilar (kadi, ad, parola, rol, aktif, sifre_yenile, olusturma) VALUES (?, ?, ?, ?, 1, 1, ?)"
-  ).run(k, ad, parolaKur(parola), rol === "admin" ? "admin" : "personel", simdi());
+  ).run(k, ad, parolaKur(parola), rolGecerli(rol), simdi());
   return Number(r.lastInsertRowid);
 }
 export function parolaDegistir(db, id, yeniParola, { yenileBayragi = 0 } = {}) {
@@ -620,7 +642,7 @@ export function kullaniciDurum(db, id, aktif) {
   return Number(db.prepare("UPDATE kullanicilar SET aktif = ? WHERE id = ?").run(aktif ? 1 : 0, id).changes) > 0;
 }
 export function kullaniciRol(db, id, rol) {
-  return Number(db.prepare("UPDATE kullanicilar SET rol = ? WHERE id = ?").run(rol === "admin" ? "admin" : "personel", id).changes) > 0;
+  return Number(db.prepare("UPDATE kullanicilar SET rol = ? WHERE id = ?").run(rolGecerli(rol), id).changes) > 0;
 }
 
 // Oturum

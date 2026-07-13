@@ -54,6 +54,8 @@ export const api = {
   kullaniciSifirla: (id, yeni) => iste(`/api/kullanicilar/${id}/sifirla`, { method: "POST", body: JSON.stringify({ yeni }) }),
   kullaniciDurum: (id, aktif) => iste(`/api/kullanicilar/${id}/durum`, { method: "POST", body: JSON.stringify({ aktif }) }),
   kullaniciRol: (id, rol) => iste(`/api/kullanicilar/${id}/rol`, { method: "POST", body: JSON.stringify({ rol }) }),
+  rollerIzin: () => iste("/api/roller/izin"),
+  rollerIzinKaydet: (izin_personel) => iste("/api/roller/izin", { method: "PUT", body: JSON.stringify({ izin_personel }) }),
   // ── Ayarlar (SMTP / e-posta bildirim) — admin ──
   ayarlar: () => iste("/api/ayarlar"),
   ayarlariKaydet: (a) => iste("/api/ayarlar", { method: "PUT", body: JSON.stringify(a) }),

@@ -14,6 +14,9 @@ const VARSAYILAN = {
   bildirim_hedef: "admin@semak.com.tr",
   bildirim_aktif: "1",
   bildirim_yeni_talep: "1",
+  bildirim_musteri_durum: "1",
+  bildirim_dis_kaynak: "1",
+  bildirim_talep_acan: "1",
 };
 
 function Etiket({ baslik, ipucu, children }) {
@@ -107,6 +110,7 @@ export default function Ayarlar() {
         bildirim_yeni_talep: a.bildirim_yeni_talep ?? VARSAYILAN.bildirim_yeni_talep,
         bildirim_musteri_durum: a.bildirim_musteri_durum ?? "1",
         bildirim_dis_kaynak: a.bildirim_dis_kaynak ?? "1",
+        bildirim_talep_acan: a.bildirim_talep_acan ?? "1",
         imap_aktif: a.imap_aktif ?? "0",
         imap_host: a.imap_host || "outlook.office365.com",
         imap_port: a.imap_port || "993",
@@ -224,7 +228,10 @@ export default function Ayarlar() {
           baslik="Müşteriye durum / yanıt e-postası" aciklama="Talebin durumu değişince veya müşteriye görünür yanıt yazılınca müşteriye bildirim (e-postası kayıtlıysa)." />
         <div style={{ borderTop: `1px solid ${PAL.cizgi}` }} />
         <Anahtar acik={f.bildirim_dis_kaynak === "1"} onToggle={() => toggle("bildirim_dis_kaynak")}
-          baslik="Dış kaynağa yönlendirme e-postası" aciklama="Talep bir dış kişiye yönlendirilince, o kişinin e-postasına talep detayı otomatik gönderilir." />
+          baslik="Dış kaynağa yönlendirme / not e-postası" aciklama="Talep bir dış kişiye yönlendirilince VE o talebe yeni not/yorum eklenince, dış kişinin e-postasına bildirim gönderilir." />
+        <div style={{ borderTop: `1px solid ${PAL.cizgi}` }} />
+        <Anahtar acik={f.bildirim_talep_acan === "1"} onToggle={() => toggle("bildirim_talep_acan")}
+          baslik="Talebi açana durum / yanıt e-postası" aciklama="İç portal veya e-postayla açılan taleplerde, durum değişince ya da görünür yanıt yazılınca talebi açan kişiye bildirim (iletişim alanı e-posta ise)." />
         <div style={{ marginTop: 10 }}>
           <Etiket baslik="Bildirim alıcı(ları)" ipucu="Birden fazla için virgülle ayırın.">
             <input style={girdiStil} value={f.bildirim_hedef} onChange={(e) => set("bildirim_hedef", e.target.value)} placeholder="admin@semak.com.tr" />

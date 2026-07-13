@@ -11,12 +11,12 @@ export default function Uyarilar({ tipMeta, onGit }) {
   const [gun, setGun] = useState(45);
   const [veri, setVeri] = useState(null);
 
-  useEffect(() => { setVeri(null); api.uyarilar(gun).then(setVeri).catch(() => setVeri({ gecmis: [], yakin: [] })); }, [gun]);
+  useEffect(() => { setVeri(null); api.uyarilar(gun).then(setVeri).catch(() => setVeri({ gecmis: [], yakin: [], talepler: [] })); }, [gun]);
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
-        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800 }}>🔔 Bitiş Uyarıları</h2>
+        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800 }}>🔔 Uyarılar</h2>
         <div style={{ flex: 1 }} />
         <span style={{ fontSize: 12.5, color: PAL.soluk2 }}>Eşik:</span>
         {ESIKLER.map((e) => (
@@ -30,12 +30,40 @@ export default function Uyarilar({ tipMeta, onGit }) {
 
       {!veri ? <Yukleniyor /> : (
         <>
+          <TalepGrup kayitlar={veri.talepler || []} tipMeta={tipMeta} onGit={onGit} />
+          <div style={{ height: 16 }} />
           <Grup baslik="Süresi geçmiş" renk={PAL.rose} kayitlar={veri.gecmis} tipMeta={tipMeta} onGit={onGit} bos="Süresi geçmiş kayıt yok." />
           <div style={{ height: 16 }} />
           <Grup baslik={`Yaklaşan (${gun} gün içinde)`} renk={PAL.gold} kayitlar={veri.yakin} tipMeta={tipMeta} onGit={onGit} bos="Yaklaşan bitiş yok." />
         </>
       )}
     </div>
+  );
+}
+
+// Acik talepler (durum Cozuldu/Kapandi/Reddedildi degil) — gunluk yapilacaklar.
+function TalepGrup({ kayitlar, tipMeta, onGit }) {
+  return (
+    <Panel style={{ padding: 18 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+        <span style={{ width: 9, height: 9, borderRadius: 999, background: PAL.teal }} />
+        <Eyebrow>Açık talepler · {kayitlar.length}</Eyebrow>
+      </div>
+      {kayitlar.length === 0
+        ? <div style={{ color: PAL.soluk2, fontSize: 13 }}>Açık talep yok. 🎉</div>
+        : kayitlar.map((k) => (
+          <div key={`talep-${k.id}`} onClick={() => onGit(k.id)} style={{
+            display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderTop: `1px solid ${PAL.cizgi}`, cursor: "pointer",
+          }}>
+            <span style={{ fontSize: 18 }}>{tipMeta[k.tip]?.ikon || "📨"}</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14.5, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{k.baslik}</div>
+              <div style={{ fontSize: 12, color: PAL.soluk2 }}>{k.atanan ? `👤 ${k.atanan}` : "atanmamış"}{k.oncelik ? ` · ${k.oncelik}` : ""}</div>
+            </div>
+            <Rozet renk={PAL.teal}>{k.durum || "Yeni"}</Rozet>
+          </div>
+        ))}
+    </Panel>
   );
 }
 

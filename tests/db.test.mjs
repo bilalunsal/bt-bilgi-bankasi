@@ -366,3 +366,83 @@ test("aramaIfadesi: ozel karakterler temizlenir (sozdizim guvenli)", () => {
   assert.equal(aramaIfadesi(""), null);
   assert.equal(aramaIfadesi("   "), null);
 });
+
+// ── YETKI (rol izinleri: modül grubu bazında) ────────────────────────────────
+test("izin: rol -> modül/tip kümeleri (admin hepsi, it yönetim hariç, personel yapılandırılabilir)", async () => {
+  const { izinliModuller, izinliTipler, tipModulu, personelIzinCoz, ICERIK_MODULLERI } = await import("../sunucu/izinler.js");
+
+  // admin: yönetim dahil hepsi
+  assert.ok(izinliModuller("admin").has("yonetim"));
+  // it: yönetim hariç tüm içerik modülleri, genel açık
+  const it = izinliModuller("it");
+  assert.ok(it.has("destek") && it.has("envanter") && it.has("genel"));
+  assert.ok(!it.has("yonetim"), "it yönetime erişemez");
+  // personel varsayılan (null): içerik modüllerinin hepsi (mevcut kurulumda daralma yok)
+  const varsayilan = izinliModuller("personel", null);
+  ICERIK_MODULLERI.forEach((k) => assert.ok(varsayilan.has(k), `varsayılan personel ${k}`));
+  assert.ok(!varsayilan.has("yonetim"));
+
+  // personel kısıtlı: yalnız "destek" (ticket) verilirse envantere erişemez ama ticket'a erişir
+  const kisitli = izinliModuller("personel", ["destek"]);
+  assert.ok(kisitli.has("destek") && kisitli.has("genel"));
+  assert.ok(!kisitli.has("envanter"), "kısıtlı personel envantere erişemez");
+  const tipler = izinliTipler(kisitli);
+  assert.ok(tipler.has("talep"), "ticket (talep) erişilebilir");
+  assert.ok(!tipler.has("donanim"), "donanım erişilemez");
+
+  // tipModulu doğru eşler
+  assert.equal(tipModulu("talep"), "destek");
+  assert.equal(tipModulu("donanim"), "envanter");
+  assert.equal(tipModulu("bilinmeyen"), null);
+
+  // personelIzinCoz: geçersizleri eler, bozuk JSON -> null
+  assert.deepEqual(personelIzinCoz(JSON.stringify(["destek", "yok", "yonetim"])), ["destek"]);
+  assert.equal(personelIzinCoz("bozuk{"), null);
+});
+
+test("ara: tipler süzgeci yalnız izinli tipleri döndürür", () => {
+  const db = yeniDb();
+  kayitEkle(db, { tip: "donanim", baslik: "Dell PC envanter" });
+  kayitEkle(db, { tip: "talep", baslik: "Yazici arizasi talep" });
+  // süzgeçsiz: ikisi de
+  assert.equal(ara(db, {}).length, 2);
+  // yalnız talep izinli
+  const sadeceTalep = ara(db, { tipler: ["talep"] });
+  assert.equal(sadeceTalep.length, 1);
+  assert.equal(sadeceTalep[0].tip, "talep");
+  // boş izin -> hiçbir kayıt
+  assert.equal(ara(db, { tipler: [] }).length, 0);
+  // arama ifadesiyle birlikte de süzer
+  assert.equal(ara(db, { q: "envanter", tipler: ["talep"] }).length, 0);
+  assert.equal(ara(db, { q: "talep", tipler: ["talep"] }).length, 1);
+});
+
+test("uyarilar: birakilan/iptal edilen kayit uyari uretmez", () => {
+  const db = yeniDb();
+  const dun = new Date(Date.now() - 86400000).toISOString().slice(0, 10); // suresi gecmis
+  // Aktif alan adi: suresi gecmis → uyariya DUSMELI
+  kayitEkle(db, { tip: "alan_adi", baslik: "aktif.com", durum: "Aktif", veri: { bitis: dun } });
+  // Birakilan alan adi: suresi gecmis olsa da uyariya DUSMEMELI
+  kayitEkle(db, { tip: "alan_adi", baslik: "birakilan.com", durum: "Birakildi", veri: { bitis: dun } });
+  // Iptal SSL: dusmemeli
+  kayitEkle(db, { tip: "ssl", baslik: "iptal-ssl", durum: "Iptal", veri: { bitis: dun } });
+
+  const u = uyarilar(db, { gun: 45 });
+  const basliklar = [...u.gecmis, ...u.yakin].map((x) => x.baslik);
+  assert.ok(basliklar.includes("aktif.com"), "aktif suresi gecmis uyarida olmali");
+  assert.ok(!basliklar.includes("birakilan.com"), "birakilan uyarida OLMAMALI");
+  assert.ok(!basliklar.includes("iptal-ssl"), "iptal ssl uyarida OLMAMALI");
+});
+
+test("uyarilar: acik talepler listelenir, kapali olanlar haric", () => {
+  const db = yeniDb();
+  kayitEkle(db, { tip: "talep", baslik: "Acik: yazici", durum: "Yeni" });
+  kayitEkle(db, { tip: "talep", baslik: "Acik: vpn", durum: "Inceleniyor" });
+  kayitEkle(db, { tip: "talep", baslik: "Kapali: cozuldu", durum: "Cozuldu" });
+  kayitEkle(db, { tip: "talep", baslik: "Kapali: reddedildi", durum: "Reddedildi" });
+  const u = uyarilar(db, { gun: 45 });
+  const b = (u.talepler || []).map((t) => t.baslik);
+  assert.equal(u.talepler.length, 2, "yalniz 2 acik talep");
+  assert.ok(b.includes("Acik: yazici") && b.includes("Acik: vpn"));
+  assert.ok(!b.includes("Kapali: cozuldu") && !b.includes("Kapali: reddedildi"));
+});
