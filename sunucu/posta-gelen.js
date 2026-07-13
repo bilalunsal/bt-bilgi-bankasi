@@ -18,6 +18,7 @@ export function imapAyarlari(db) {
   const out = { ...VARSAYILAN };
   for (const k of Object.keys(VARSAYILAN)) if (hepsi[k] != null && hepsi[k] !== "") out[k] = hepsi[k];
   out.imap_son = ayarGetir(db, "imap_son", "") || null;
+  out.imap_son_sonuc = ayarGetir(db, "imap_son_sonuc", "") || null;
   return out;
 }
 
@@ -75,8 +76,20 @@ export function yanitIslendiMi(db, { konu, govde, from, fromAd }) {
   return true;
 }
 
-// Kutuyu yoklar, okunmamis mailleri talebe cevirir. { ok, sayi, atlanan } | { ok:false, hata }.
+// Son kontrol sonucunu kisa metne cevir (Ayarlar'da gosterilir → teshis kolaylasir).
+function imapSonucOzet(r) {
+  if (!r) return "";
+  if (r.atlandi) return r.neden === "kapali" ? "IMAP kapalı" : r.neden === "yapilandirilmadi" ? "Yapılandırılmadı (host/kullanıcı/parola eksik)" : `Atlandı: ${r.neden}`;
+  if (!r.ok) return `Hata: ${r.hata}`;
+  return `${r.sayi} yeni talep · ${r.yanit || 0} yanıt · ${r.atlanan || 0} atlandı`;
+}
+// Kutuyu yoklar, okunmamis mailleri talebe cevirir; HER kontrolde son zaman+sonuc kaydedilir.
 export async function postaKontrol(db) {
+  const r = await _postaKontrol(db);
+  try { ayarKur(db, "imap_son", new Date().toISOString()); ayarKur(db, "imap_son_sonuc", imapSonucOzet(r)); } catch { /* yoksay */ }
+  return r;
+}
+async function _postaKontrol(db) {
   const a = imapAyarlari(db);
   if (a.imap_aktif !== "1") return { atlandi: true, neden: "kapali" };
   if (!a.imap_host || !a.imap_kullanici || !a.imap_parola) return { atlandi: true, neden: "yapilandirilmadi" };
@@ -121,7 +134,6 @@ export async function postaKontrol(db) {
       }
     } finally { lock.release(); }
     await client.logout();
-    ayarKur(db, "imap_son", new Date().toISOString());
     return { ok: true, sayi, atlanan, yanit };
   } catch (e) {
     try { await client.close(); } catch { /* yoksay */ }

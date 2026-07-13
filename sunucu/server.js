@@ -9,7 +9,7 @@ import {
   veritabaniAc, TIPLER, alanTanimlari,
   ara, kayitEkle, kayitGetir, kayitGuncelle, kayitSil,
   yorumEkle, yorumlar, iliskiEkle, iliskiSil, iliskilerGetir,
-  ekEkle, ekler, ekGetir, ekSil, uyarilar,
+  ekEkle, ekler, ekGetir, ekSil, uyarilar, takvimOlaylari,
   gecmisGetir, istatistik,
   musteriListe, musteriEkle, musteriTokenYenile, musteriDurum,
   girisDene, oturumKullanici, oturumKapat, kullaniciBulKadi,
@@ -320,6 +320,49 @@ app.get("/api/ara", sarmala((req, res) => {
   // Admin harici: yalnız izinli tipler döner (menüde gizli modüllerin kayıtları aramaya düşmesin).
   const tipler = req.kullanici?.rol === "admin" ? null : Array.from(kullaniciTipSeti(req.kullanici));
   res.json(ara(db, { q, tip, durum, tipler, limit, offset }));
+}));
+
+// ── Disa aktarma (CSV / JSON) — izin suzgecli ────────────────────────────────
+const csvKacis = (v) => {
+  const s = v == null ? "" : String(v);
+  return /[";\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
+app.get("/api/disa-aktar", sarmala((req, res) => {
+  const { q = "", tip = null, durum = null } = req.query;
+  const format = String(req.query.format || "csv").toLowerCase() === "json" ? "json" : "csv";
+  if (tip && !tipErisebilir(req.kullanici, tip)) return res.status(403).json({ hata: "Bu kayıt türüne erişim izniniz yok" });
+  const tipler = req.kullanici?.rol === "admin" ? null : Array.from(kullaniciTipSeti(req.kullanici));
+  const kayitlar = ara(db, { q, tip, durum, tipler, limit: 100000, offset: 0 });
+  const gun = new Date().toISOString().slice(0, 10);
+  const dosyaAd = `disa-aktar-${tip || "tumu"}-${gun}`;
+
+  if (format === "json") {
+    res.set("Content-Type", "application/json; charset=utf-8");
+    res.set("Content-Disposition", `attachment; filename="${dosyaAd}.json"`);
+    return res.send(JSON.stringify(kayitlar, null, 2));
+  }
+  // CSV: temel kolonlar + (tek tip ise) o tipin alan kodları; degilse veri JSON kolonu.
+  const temel = ["id", "tip", "baslik", "durum", "atanan", "konum", "oncelik", "etiketler", "olusturma", "guncelleme"];
+  const alanKodlari = tip ? alanTanimlari(db, tip).map((a) => a.kod) : [];
+  const basliklar = tip ? [...temel, ...alanKodlari] : [...temel, "veri"];
+  const satirlar = [basliklar.map(csvKacis).join(";")];
+  for (const k of kayitlar) {
+    const satir = temel.map((c) => c === "etiketler" ? (k.etiketler || []).join(", ") : k[c]);
+    if (tip) for (const kod of alanKodlari) satir.push(k.veri?.[kod] ?? "");
+    else satir.push(JSON.stringify(k.veri || {}));
+    satirlar.push(satir.map(csvKacis).join(";"));
+  }
+  res.set("Content-Type", "text/csv; charset=utf-8");
+  res.set("Content-Disposition", `attachment; filename="${dosyaAd}.csv"`);
+  res.send("﻿" + satirlar.join("\r\n")); // BOM → Excel-TR Turkce/utf-8 dogru okur
+}));
+
+// ── IT Takvimi: tarihli olaylar (bitis/garanti) — izin suzgecli ──────────────
+app.get("/api/takvim", sarmala((req, res) => {
+  const olaylar = takvimOlaylari(db);
+  if (req.kullanici?.rol === "admin") return res.json({ olaylar });
+  const izinli = kullaniciTipSeti(req.kullanici);
+  res.json({ olaylar: olaylar.filter((o) => izinli.has(o.tip)) });
 }));
 
 // ── Kayit CRUD ──────────────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 {
-  "version": "1.5.0",
-  "yapim": 16,
+  "version": "1.6.0",
+  "yapim": 17,
   "ad": "SITMS",
   "tamAd": "IT Management Systems",
-  "not": "Dış kaynak e-posta yanıtıyla talebe not ekler / [cozuldu] ile kapatır (IMAP). Öncesi: 3 seviyeli yetki + bildirim/uyarı geliştirmeleri (1.4.0)."
+  "not": "Pano (KPI + kayıt/talep grafikleri + IT takvimi) · CSV/JSON dışa aktarma · IMAP son-kontrol sonucu Ayarlar'da görünür (teşhis)."
 }

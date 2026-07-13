@@ -6,6 +6,7 @@ import { Panel, Rozet, DurumRozet, TipRozet, Etiket, Buton, Yukleniyor, girdiSti
 import KayitForm from "./KayitForm.jsx";
 import KayitDetay from "./KayitDetay.jsx";
 import Uyarilar from "./Uyarilar.jsx";
+import Dashboard from "./Dashboard.jsx";
 import Giris from "./Giris.jsx";
 import ParolaDegistir from "./ParolaDegistir.jsx";
 import Kullanicilar from "./Kullanicilar.jsx";
@@ -15,7 +16,7 @@ import { LISTE_KOLON } from "./modul.js";
 // Sol menu gruplari (FortiGate tarzi acilir-kapanir). tipler API'den gelir; burada gruplanir.
 // mod = backend izin modülü anahtarı (sunucu/izinler.js). Rol izni bu anahtara göre filtreler.
 const MENU_GRUPLARI = [
-  { baslik: "Genel", ikon: "📊", mod: "genel", ozel: ["tumu", "uyarilar"] },
+  { baslik: "Genel", ikon: "📊", mod: "genel", ozel: ["pano", "tumu", "uyarilar"] },
   { baslik: "Envanter", ikon: "🗄️", mod: "envanter", tipler: ["donanim", "yazilim", "lisans", "ag"] },
   { baslik: "Alan Adı & SSL", ikon: "🌍", mod: "alanssl", tipler: ["alan_adi", "ssl"] },
   { baslik: "Dokümantasyon", ikon: "📚", mod: "dokuman", tipler: ["sistem", "surec", "revizyon", "bilgi"] },
@@ -33,7 +34,7 @@ export default function App() {
   const [aktifDurum, setAktifDurum] = useState("");
   const [sonuclar, setSonuclar] = useState([]);
   const [yukleniyor, setYukleniyor] = useState(false);
-  const [gorunum, setGorunum] = useState("liste"); // liste | detay | form
+  const [gorunum, setGorunum] = useState("pano"); // pano | liste | detay | form | uyarilar | …
   const [seciliId, setSeciliId] = useState(null);
   const [formTip, setFormTip] = useState(null);
   const [formMevcut, setFormMevcut] = useState(null);
@@ -105,6 +106,8 @@ export default function App() {
 
   // Ozel (tip olmayan) menu ogeleri
   const ozelOge = {
+    pano: { etiket: "Pano", ikon: "📊", renk: PAL.teal, say: null, aktif: gorunum === "pano",
+      onClick: () => setGorunum("pano") },
     tumu: { etiket: "Tümü", ikon: "▦", renk: PAL.mavi, say: ist?.toplam, aktif: gorunum === "liste" && !aktifTip,
       onClick: () => { setAktifTip(""); setAktifDurum(""); setGorunum("liste"); } },
     uyarilar: { etiket: "Uyarılar", ikon: "🔔", renk: PAL.gold, rozetRenk: PAL.gold, say: uyariSayi || null,
@@ -271,6 +274,10 @@ export default function App() {
           {gorunum === "detay" && seciliId && (
             <KayitDetay id={seciliId} tipMeta={tipMeta} iliskiTurleri={iliskiTurleri}
               onDuzenle={duzenleAc} onGeri={() => { setGorunum("liste"); panoYenile(); listeYenile(); }} onGit={detayAc} />
+          )}
+          {gorunum === "pano" && (
+            <Dashboard tipMeta={tipMeta} onGit={detayAc}
+              onTip={(kod) => { setAktifTip(kod); setAktifDurum(""); setGorunum("liste"); }} />
           )}
           {gorunum === "uyarilar" && (
             <Uyarilar tipMeta={tipMeta} onGit={detayAc} />

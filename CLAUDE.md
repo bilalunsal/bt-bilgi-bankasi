@@ -290,6 +290,21 @@ Ortam: `PORT` (varsayılan 8793), `BILGI_DB` (varsayılan `db/bilgi.sqlite`).
       (`yanitIslendiMi`: yetkisiz dokunmaz · not ekler · [cozuldu] kapatır · [#id] yoksa yanıt değil).
       **Canlı IMAP testi hâlâ Bilal'de** (teknik@; imapflow canlı O365'te doğrulanmadı). SEMAK teknik@
       hem SMTP hem IMAP.
+- [x] **Faz 16 — Pano + CSV/JSON export + IT takvimi + IMAP teşhis (1.6.0 / yapım 17).**
+    - **Pano (`Dashboard.jsx`, açılış görünümü):** KPI tile (toplam kayıt/açık talep/yaklaşan uyarı/
+      süresi geçmiş) + **kayıt tipi dağılımı** ve **talep durumu** yatay barları (dataviz: ince mark,
+      yuvarlak uç, doğrudan etiket, PAL/TIP_RENK) + **IT Takvimi** ay-ızgara (tarihli bitişler tip
+      renginde nokta; güne tıkla→olaylar; ay gezinme). Veri: istatistik + uyarilar + `/api/takvim`.
+      Menü: Genel>Pano. İzin süzgeçli (istatistik/uyarılar zaten süzülüyor).
+    - **CSV/JSON dışa aktarma:** `GET /api/disa-aktar?tip=&durum=&q=&format=` (izin süzgeçli). CSV:
+      **BOM + `;` ayraç** (Excel-TR), temel kolonlar + tek tip ise o tipin alan kodları, değilse veri
+      JSON kolonu; kaçış `csvKacis`. UI: Pano'da ⬇CSV/⬇JSON (anchor indirme, çerezli same-origin).
+    - **IT takvim verisi:** `db.takvimOlaylari` — UYARI_ALANLARI tarihleri, eşik yok, kapalı durumlar
+      hariç, sıralı. `GET /api/takvim` izin süzgeçli.
+    - **IMAP teşhis:** `postaKontrol` artık HER kontrolde `imap_son` + `imap_son_sonuc` (kısa özet:
+      "IMAP kapalı"/"Yapılandırılmadı"/"Hata: …"/"N yeni · M yanıt") kaydeder; Ayarlar>IMAP'ta
+      "Son kontrol: <zaman> · <sonuç>" görünür → e-posta→ticket neden çalışmıyor **tek bakışta** anlaşılır.
+      (Zamanlayıcı zaten kurulu: açılış+20sn, her 3dk — `server.js:668`.)
 - [ ] **Kalan dağıtım:** SEMAK'a ilk kurulum + Cloudflare Tunnel (8795 yayın); ops: **otomatik yedek
       (SIRADA — Bilal 'veri çok kritik' dedi)**, Windows başlangıç servisi, (opsiyonel) tek `.exe`.
 - [ ] **Kararlaştırılan sonraki 4 (rakip ITSM analizi):** 1) E-posta ✅(Faz10) · 3) müşteri talep

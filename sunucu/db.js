@@ -501,6 +501,24 @@ export function uyarilar(db, { gun = 45, bugun = null } = {}) {
     talepler: acikTalepler,
   };
 }
+// IT Takvimi: tarihli TUM olaylar (esik yok) — garanti/lisans/ssl/alan_adi/sozlesme bitisleri.
+// Kapatilmis kayitlar (Birakildi/Iptal…) haric. Tarihe gore sirali.
+export function takvimOlaylari(db) {
+  const cikti = [];
+  for (const u of UYARI_ALANLARI) {
+    const satirlar = db.prepare(
+      `SELECT id, tip, baslik, durum, json_extract(veri, '$.' || ?) AS tarih
+       FROM kayitlar WHERE tip = ? AND arsiv = 0 AND tarih IS NOT NULL AND tarih != ''`
+    ).all(u.alan, u.tip);
+    for (const s of satirlar) {
+      if (UYARI_KAPALI_DURUMLAR.has(durumNorm(s.durum))) continue;
+      const tarih = String(s.tarih).slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(tarih)) continue;
+      cikti.push({ id: s.id, tip: s.tip, baslik: s.baslik, durum: s.durum, kategori: u.etiket, tarih });
+    }
+  }
+  return cikti.sort((a, b) => (a.tarih < b.tarih ? -1 : a.tarih > b.tarih ? 1 : 0));
+}
 function gunFarki(bugunISO, hedefISO) {
   const a = Date.parse(bugunISO + "T00:00:00Z");
   const b = Date.parse(String(hedefISO).slice(0, 10) + "T00:00:00Z");

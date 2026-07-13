@@ -1,7 +1,7 @@
 // Ayarlar.jsx — admin: SMTP / e-posta bildirim yapilandirmasi + test maili.
 // Parola GET'te maskeli gelir (smtp_parola_var). Bos birakilirsa mevcut parola KORUNUR.
 import React, { useEffect, useState } from "react";
-import { PAL } from "./tema.js";
+import { PAL, tarihFmt } from "./tema.js";
 import { api, dosyaOku, boyutFmt } from "./api.js";
 import { Panel, Eyebrow, Buton, girdiStil, Yukleniyor, MarkaLogo } from "./ui.jsx";
 
@@ -117,6 +117,8 @@ export default function Ayarlar() {
         imap_kullanici: a.imap_kullanici || "",
         imap_klasor: a.imap_klasor || "INBOX",
         imap_parola: "",
+        imap_son: a.imap_son || "",
+        imap_son_sonuc: a.imap_son_sonuc || "",
         yedek_aktif: a.yedek_aktif ?? "0",
         yedek_klasor: a.yedek_klasor ?? "",
         yedek_tut: a.yedek_tut ?? "14",
@@ -276,6 +278,11 @@ export default function Ayarlar() {
             placeholder={imapParolaVar ? "•••••••• (değiştirmek için yazın)" : "Parola girin"} autoComplete="new-password" />
         </Etiket>
         <Etiket baslik="Klasör" ipucu="Genelde INBOX."><input style={girdiStil} value={f.imap_klasor} onChange={(e) => set("imap_klasor", e.target.value)} /></Etiket>
+        {(f.imap_son || f.imap_son_sonuc) && (
+          <div style={{ fontSize: 12, color: PAL.soluk, background: PAL.bg2, border: `1px solid ${PAL.cizgi}`, borderRadius: 8, padding: "8px 11px", marginTop: 6 }}>
+            <b>Son kontrol:</b> {f.imap_son ? tarihFmt(f.imap_son) : "—"}{f.imap_son_sonuc ? ` · ${f.imap_son_sonuc}` : ""}
+          </div>
+        )}
         <div style={{ fontSize: 11.5, color: PAL.soluk2, marginTop: 6, lineHeight: 1.6 }}>
           <b>Not:</b> O365'te IMAP kapalıysa açtırılmalı; MFA varsa <b>uygulama parolası</b> gerekir.
           Kendi adresimizden / otomatik-yanıt mailleri talep açmaz (döngü koruması).

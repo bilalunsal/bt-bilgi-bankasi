@@ -44,6 +44,15 @@ export const api = {
   zimmetAta: (id, personel_id, not) => iste(`/api/kayit/${id}/zimmet`, { method: "POST", body: JSON.stringify({ personel_id, not }) }),
   zimmetIade: (id, not) => iste(`/api/kayit/${id}/iade`, { method: "POST", body: JSON.stringify({ not }) }),
   uyarilar: (gun = 45) => iste(`/api/uyarilar?gun=${gun}`),
+  takvim: () => iste("/api/takvim"),
+  disaAktarUrl: ({ tip = "", durum = "", q = "", format = "csv" } = {}) => {
+    const p = new URLSearchParams();
+    if (tip) p.set("tip", tip);
+    if (durum) p.set("durum", durum);
+    if (q) p.set("q", q);
+    p.set("format", format);
+    return `/api/disa-aktar?${p.toString()}`;
+  },
   // ── Kimlik ──
   ben: () => iste("/api/ben"),
   giris: (kadi, parola) => iste("/api/giris", { method: "POST", body: JSON.stringify({ kadi, parola }) }),
