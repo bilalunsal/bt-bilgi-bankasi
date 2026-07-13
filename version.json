@@ -1,7 +1,7 @@
 {
-  "version": "1.3.0",
-  "yapim": 13,
+  "version": "1.3.1",
+  "yapim": 14,
   "ad": "SITMS",
   "tamAd": "IT Management Systems",
-  "not": "Talep yonlendirme (İç/Dış) + Dış Kişi + iç talep portalı + e-posta→ticket (IMAP) + ilişki seçici"
+  "not": "İlişki seçici düzeltmesi: açılır listeden kişi/kayıt seçimi artık çalışıyor (dış kaynak, tedarikçi, kurulu cihaz…)"
 }

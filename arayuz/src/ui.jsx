@@ -166,7 +166,8 @@ export function IliskiGirdi({ tanim, deger, onChange }) {
       {odak && sonuc.length > 0 && (
         <div style={{ marginTop: 4, background: PAL.bg2, border: `1px solid ${PAL.cizgi}`, borderRadius: 8, overflow: "hidden" }}>
           {sonuc.map((s) => (
-            <div key={s.id} onClick={() => { onChange(s.id); setSecili({ id: s.id, baslik: s.baslik }); setQ(""); setSonuc([]); }}
+            <div key={s.id}
+              onMouseDown={(e) => { e.preventDefault(); onChange(s.id); setSecili({ id: s.id, baslik: s.baslik }); setQ(""); setSonuc([]); setOdak(false); }}
               style={{ padding: "7px 9px", cursor: "pointer", fontSize: 13 }}
               onMouseEnter={(e) => e.currentTarget.style.background = PAL.surface2}
               onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
