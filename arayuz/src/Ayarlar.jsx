@@ -63,7 +63,7 @@ export default function Ayarlar() {
       await api.ayarlariKaydet({ imap_aktif: f.imap_aktif, imap_host: f.imap_host, imap_port: f.imap_port, imap_kullanici: f.imap_kullanici, imap_klasor: f.imap_klasor, ...(f.imap_parola ? { imap_parola: f.imap_parola } : {}) });
       if (f.imap_parola) { setImapParolaVar(true); setF((s) => ({ ...s, imap_parola: "" })); }
       const r = await api.postaKontrol();
-      if (r.ok) setBilgi(`Posta kutusu kontrol edildi: ${r.sayi} yeni talep (atlanan: ${r.atlanan || 0}).`);
+      if (r.ok) setBilgi(`Posta kutusu kontrol edildi: ${r.sayi} yeni talep, ${r.yanit || 0} yanıt (atlanan: ${r.atlanan || 0}).`);
       else if (r.atlandi) setHata(`Atlandı: ${r.neden}`);
       else setHata(`Başarısız: ${r.hata || "bilinmeyen"}`);
     } catch (e) { setHata(e.message); }

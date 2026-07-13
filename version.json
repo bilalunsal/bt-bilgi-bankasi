@@ -1,7 +1,7 @@
 {
-  "version": "1.4.0",
-  "yapim": 15,
+  "version": "1.5.0",
+  "yapim": 16,
   "ad": "SITMS",
   "tamAd": "IT Management Systems",
-  "not": "3 seviyeli yetki (admin/IT/personel + modül izinleri) · dış kaynak & talep-açan bildirimleri · uyarılarda açık talepler · bırakılan/iptal kayıtlar uyarıya düşmez"
+  "not": "Dış kaynak e-posta yanıtıyla talebe not ekler / [cozuldu] ile kapatır (IMAP). Öncesi: 3 seviyeli yetki + bildirim/uyarı geliştirmeleri (1.4.0)."
 }

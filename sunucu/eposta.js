@@ -154,13 +154,21 @@ export async function disKaynakBildir(db, { epostaAdres, baslik, aciklama, talep
   const esc = (s) => String(s ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
   return epostaGonder(db, {
     kime: epostaAdres,
-    konu: `Size yönlendirilen talep: ${baslik}`.slice(0, 180),
-    metin: `Merhaba,\n\nAşağıdaki talep tarafınıza yönlendirilmiştir:\n\nKonu: ${baslik}\n\n${aciklama || ""}\n\n${marka}`,
+    konu: `Size yönlendirilen talep: ${baslik} [#${talepId}]`.slice(0, 180),
+    metin: `Merhaba,\n\nAşağıdaki talep tarafınıza yönlendirilmiştir:\n\nKonu: ${baslik}\n\n${aciklama || ""}\n\nBu e-postayı YANITLAYARAK not ekleyebilirsiniz. İşi bitirdiyseniz konuya [cozuldu] yazın. (Konudaki [#${talepId}] etiketini silmeyin.)\n\n${marka}`,
     html: `<div style="font-family:system-ui,Segoe UI,sans-serif;font-size:14px;color:#0F1420">
       <p>Merhaba,</p>
       <p>Aşağıdaki talep tarafınıza yönlendirilmiştir:</p>
       <p><b>${esc(baslik)}</b> <span style="color:#6B7896">(#${esc(talepId)})</span></p>
       <p style="white-space:pre-wrap">${esc(aciklama) || ""}</p>
+      <div style="margin-top:16px;padding:12px 14px;background:#EEF4FF;border:1px solid #C7DBFF;border-radius:10px;font-size:13px;color:#1B3A6B">
+        <b>Talebi nasıl güncellersiniz / kapatırsınız?</b>
+        <ol style="margin:8px 0 0;padding-left:18px">
+          <li>Bu e-postayı <b>YANITLAYIN</b> (Yanıtla) — yazdığınız metin talebe not olarak eklenir.</li>
+          <li>İşi bitirdiyseniz, yanıt <b>konusuna</b> <code style="background:#DCE8FF;padding:1px 5px;border-radius:4px">[cozuldu]</code> yazın — talep otomatik kapanır.</li>
+          <li>Konudaki <code style="background:#DCE8FF;padding:1px 5px;border-radius:4px">[#${esc(talepId)}]</code> etiketini <b>silmeyin</b> (talep bu etiketle eşleşir).</li>
+        </ol>
+      </div>
       <p style="color:#6B7896;font-size:12px;margin-top:14px">${esc(marka)}</p></div>`,
   });
 }
@@ -173,8 +181,8 @@ export async function disKaynakYanitBildir(db, { epostaAdres, baslik, yorum, tal
   const esc = (s) => String(s ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
   return epostaGonder(db, {
     kime: epostaAdres,
-    konu: `Yönlendirilen talebe not eklendi: ${baslik}`.slice(0, 180),
-    metin: `Merhaba,\n\nTarafınıza yönlendirilen "${baslik}" (#${talepId}) talebine yeni bir not eklendi:\n\n${yorum || ""}\n\n${marka}`,
+    konu: `Yönlendirilen talebe not eklendi: ${baslik} [#${talepId}]`.slice(0, 180),
+    metin: `Merhaba,\n\nTarafınıza yönlendirilen "${baslik}" (#${talepId}) talebine yeni bir not eklendi:\n\n${yorum || ""}\n\nBu e-postayı YANITLAYARAK not ekleyebilirsiniz; işi bitirdiyseniz konuya [cozuldu] yazın.\n\n${marka}`,
     html: `<div style="font-family:system-ui,Segoe UI,sans-serif;font-size:14px;color:#0F1420">
       <p>Merhaba,</p>
       <p>Tarafınıza yönlendirilen "<b>${esc(baslik)}</b>" <span style="color:#6B7896">(#${esc(talepId)})</span> talebine yeni bir not eklendi:</p>
@@ -189,7 +197,7 @@ export async function talepAcanBildir(db, { epostaAdres, baslik, talepId, durum 
   if (a.bildirim_talep_acan !== "1") return { ok: false, atlandi: true };
   if (!epostaAdres) return { ok: false, atlandi: true, neden: "acan e-postasi yok" };
   const esc = (s) => String(s ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
-  const konu = yanit ? `Talebinize yanıt geldi: ${baslik}` : `Talebinizin durumu güncellendi: ${durum}`;
+  const konu = (yanit ? `Talebinize yanıt geldi: ${baslik}` : `Talebinizin durumu güncellendi: ${durum}`) + ` [#${talepId}]`;
   const govde = yanit
     ? `"${baslik}" (#${talepId}) başlıklı talebinize IT ekibimiz yanıt yazdı.`
     : `"${baslik}" (#${talepId}) başlıklı talebinizin durumu: ${durum}`;

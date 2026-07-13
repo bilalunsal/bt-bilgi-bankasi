@@ -280,8 +280,16 @@ Ortam: `PORT` (varsayılan 8793), `BILGI_DB` (varsayılan `db/bilgi.sqlite`).
       `UYARI_KAPALI_DURUMLAR`, Türkçe-normalize). (6) Uyarılar panosu artık **açık talepleri** de
       listeler (durum Cozuldu/Kapandi/Reddedildi hariç → `talepler`); kenar çubuğu sayacına eklendi.
       Test **33/33**.
-    - [ ] **Sırada:** dış kaynağın ticket'ı KAPATMA yolu yok (tokenlı dış-kaynak portalı / e-posta yanıt
-          / IT kapatır — **Bilal ile yöntem netleşecek**). SEMAK teknik@ hem SMTP hem IMAP kullanacak.
+- [x] **Faz 15 — Dış kaynak/açan E-POSTA YANITI ile talep güncelleme (1.5.0 / yapım 16).** Bilal kararı:
+      **e-posta yanıtı** yöntemi. Giden bildirim konusuna `[#<id>]` etiketi eklenir (`disKaynakBildir`,
+      `disKaynakYanitBildir`, `talepAcanBildir`). `posta-gelen.js`: gelen mail konusunda `[#id]` varsa
+      **yeni talep AÇMAZ** → o talebe **not** ekler (`yorumIslendiMi`/`yanitIslendiMi`); gönderen o talebin
+      **dış kaynağı veya açanı** (email) ise yetkili sayar (başkası → dokunmaz, yeni-talep akışına bırakır);
+      konu/gövdede `[cozuldu]/[kapat]/[resolved]/[closed]` → durum **Çözüldü**. `postaKontrol` `yanit`
+      sayacı döner (Ayarlar "Şimdi Kontrol Et" + log). Türkçe-normalize eşleşme. Test **34/34**
+      (`yanitIslendiMi`: yetkisiz dokunmaz · not ekler · [cozuldu] kapatır · [#id] yoksa yanıt değil).
+      **Canlı IMAP testi hâlâ Bilal'de** (teknik@; imapflow canlı O365'te doğrulanmadı). SEMAK teknik@
+      hem SMTP hem IMAP.
 - [ ] **Kalan dağıtım:** SEMAK'a ilk kurulum + Cloudflare Tunnel (8795 yayın); ops: **otomatik yedek
       (SIRADA — Bilal 'veri çok kritik' dedi)**, Windows başlangıç servisi, (opsiyonel) tek `.exe`.
 - [ ] **Kararlaştırılan sonraki 4 (rakip ITSM analizi):** 1) E-posta ✅(Faz10) · 3) müşteri talep

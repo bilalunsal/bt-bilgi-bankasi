@@ -446,3 +446,29 @@ test("uyarilar: acik talepler listelenir, kapali olanlar haric", () => {
   assert.ok(b.includes("Acik: yazici") && b.includes("Acik: vpn"));
   assert.ok(!b.includes("Kapali: cozuldu") && !b.includes("Kapali: reddedildi"));
 });
+
+// ── E-POSTA YANITI ile talebe not/kapatma (dis kaynak) ───────────────────────
+test("posta-gelen: [#id] yanit -> yetkili gonderen not ekler, [cozuldu] kapatir", async () => {
+  const { yanitIslendiMi } = await import("../sunucu/posta-gelen.js");
+  const db = yeniDb();
+  const dk = kayitEkle(db, { tip: "dis_kisi", baslik: "Uzman Veli", veri: { email: "veli@harici.com" } });
+  const tid = kayitEkle(db, { tip: "talep", baslik: "Sunucu kurulumu", durum: "Inceleniyor",
+    veri: { hedef_tur: "Dış Kaynak", dis_kaynak: dk } });
+
+  // yetkisiz gonderen → dokunmaz
+  assert.equal(yanitIslendiMi(db, { konu: `Re: Sunucu kurulumu [#${tid}]`, govde: "spam", from: "biri@baska.com", fromAd: "Biri" }), false);
+  assert.equal(kayitGetir(db, tid).durum, "Inceleniyor", "yetkisiz durumu degistiremez");
+
+  // yetkili gonderen + not
+  assert.equal(yanitIslendiMi(db, { konu: `Re: Sunucu kurulumu [#${tid}]`, govde: "Basladim, yarin biter.", from: "veli@harici.com", fromAd: "Uzman Veli" }), true);
+  let k = kayitGetir(db, tid);
+  assert.equal(yorumlar(db, tid).length, 1, "not eklendi");
+  assert.equal(k.durum, "Inceleniyor", "kapatma istegi yoksa durum ayni");
+
+  // yetkili gonderen + [cozuldu] → kapanir
+  assert.equal(yanitIslendiMi(db, { konu: `Re: Sunucu kurulumu [#${tid}] [cozuldu]`, govde: "Bitti.", from: "veli@harici.com", fromAd: "Uzman Veli" }), true);
+  assert.equal(kayitGetir(db, tid).durum, "Cozuldu", "[cozuldu] talebi kapatir");
+
+  // [#id] yoksa yanit degil
+  assert.equal(yanitIslendiMi(db, { konu: "duz konu", govde: "x", from: "veli@harici.com", fromAd: "V" }), false);
+});
